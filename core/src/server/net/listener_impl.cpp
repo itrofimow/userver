@@ -84,9 +84,9 @@ void ListenerImpl::AcceptConnection(engine::io::Socket& request_socket) {
 void ListenerImpl::SetupConnection(engine::io::Socket peer_socket) {
   const auto fd = peer_socket.Fd();
 
-  if (peer_socket.Getsockname().Domain() == engine::io::AddrDomain::kInet6 ||
+/*  if (peer_socket.Getsockname().Domain() == engine::io::AddrDomain::kInet6 ||
       peer_socket.Getsockname().Domain() == engine::io::AddrDomain::kInet)
-    peer_socket.SetOption(IPPROTO_TCP, TCP_NODELAY, 1);
+    peer_socket.SetOption(IPPROTO_TCP, TCP_NODELAY, 1); */
 
   LOG_TRACE() << "Creating connection for fd " << fd;
 
