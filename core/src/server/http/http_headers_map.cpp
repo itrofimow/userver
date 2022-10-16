@@ -62,6 +62,13 @@ class HttpHeadersMap::Impl final {
     return HttpSerializedHeaders{std::string{}};
   }
 
+  std::size_t Size() const {
+    if (is_flat_) return flat_map_.Size();
+
+    // TODO : fix me
+    return 0;
+  }
+
  private:
   HttpHeadersFlatMap flat_map_{};
   std::unordered_map<std::string, std::string, utils::StrIcaseHash,
@@ -96,6 +103,10 @@ bool HttpHeadersMap::Contains(std::string_view key) const {
 
 void HttpHeadersMap::Clear() {
   return impl_->Clear();
+}
+
+std::size_t HttpHeadersMap::Size() const {
+
 }
 
 HttpSerializedHeaders HttpHeadersMap::GetSerializedHeaders() const {

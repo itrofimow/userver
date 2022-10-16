@@ -25,6 +25,8 @@ class HttpHeadersMap final {
 
   void Clear();
 
+  std::size_t Size() const;
+
   HttpSerializedHeaders GetSerializedHeaders() const;
  private:
   class Impl;

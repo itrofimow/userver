@@ -152,9 +152,12 @@ void HttpResponse::ClearCookies() { cookies_.clear(); }
 
 const std::string& HttpResponse::GetHeader(
     const std::string& header_name) const {
-  static std::string fix_me{"asd"};
-  return fix_me;
-  // TODO : wtf is this?
+  // TODO : fix this nonsense
+  static thread_local std::string tmp;
+
+  tmp = std::string{headers_.Find(header_name)};
+  return tmp;
+  // TODO : fix me
   // return headers_.at(header_name);
 }
 

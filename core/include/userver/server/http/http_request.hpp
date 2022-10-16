@@ -10,6 +10,7 @@
 
 #include <userver/logging/log_helper_fwd.hpp>
 #include <userver/server/http/form_data_arg.hpp>
+#include <userver/server/http/http_headers_map.hpp>
 #include <userver/server/http/http_method.hpp>
 #include <userver/server/http/http_response.hpp>
 #include <userver/utils/impl/projecting_view.hpp>
@@ -25,11 +26,10 @@ class HttpRequestImpl;
 /// @brief HTTP Request data
 class HttpRequest final {
  public:
-  using HeadersMap =
-      std::unordered_map<std::string, std::string, utils::StrIcaseHash,
-                         utils::StrIcaseEqual>;
+  using HeadersMap = HttpHeadersMap;
 
-  using HeadersMapKeys = decltype(utils::impl::MakeKeysView(HeadersMap()));
+  // TODO : fix me
+  // using HeadersMapKeys = decltype(utils::impl::MakeKeysView(HeadersMap()));
 
   using CookiesMap = std::unordered_map<std::string, std::string>;
 
@@ -143,7 +143,8 @@ class HttpRequest final {
   size_t HeaderCount() const;
 
   /// @return List of headers names.
-  HeadersMapKeys GetHeaderNames() const;
+  // TODO : fix me
+  // HeadersMapKeys GetHeaderNames() const;
 
   /// @return Value of the cookie with case sensitive name cookie_name, or an
   /// empty string if no such cookie exists.

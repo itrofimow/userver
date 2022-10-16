@@ -19,6 +19,8 @@ class HttpHeadersFlatMap final {
   bool Contains(std::string_view key) const;
   void Clear();
 
+  std::size_t Size() const;
+
   std::string_view GetPlainData() const;
  private:
   void WriteToBuffer(std::string_view data);

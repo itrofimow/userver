@@ -116,6 +116,10 @@ void HttpHeadersFlatMap::Clear() {
   data_length_ = 0;
 }
 
+std::size_t HttpHeadersFlatMap::Size() const {
+  return headers_count_;
+}
+
 std::string_view HttpHeadersFlatMap::GetPlainData() const {
   return {data_, data_length_};
 }
