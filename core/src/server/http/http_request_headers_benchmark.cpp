@@ -6,7 +6,7 @@
 
 USERVER_NAMESPACE_BEGIN
 
-namespace {
+/*namespace {
 constexpr std::size_t kHeadersCount = 32;
 const char* kHeadersArray[kHeadersCount] = {
     "TestHeader0",  "TestHeader1",  "TestHeader2",  "TestHeader3",
@@ -45,6 +45,6 @@ BENCHMARK(http_request_headers_insert)
     ->RangeMultiplier(2)
     ->Range(1, kHeadersCount);
 
-BENCHMARK(http_request_headers_get);
+BENCHMARK(http_request_headers_get);*/
 
 USERVER_NAMESPACE_END

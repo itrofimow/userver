@@ -171,21 +171,26 @@ size_t HttpRequestImpl::PathArgCount() const { return path_args_.size(); }
 
 const std::string& HttpRequestImpl::GetHeader(
     const std::string& header_name) const {
-  auto it = headers_.find(header_name);
+  // TODO : fix this nonsense
+  static thread_local std::string tmp;
+
+  tmp = std::string{headers_.Find(header_name)};
+  return tmp;
+
+  /*auto it = headers_.find(header_name);
   if (it == headers_.end()) return kEmptyString;
-  return it->second;
+  return it->second;*/
 }
 
 bool HttpRequestImpl::HasHeader(const std::string& header_name) const {
-  auto it = headers_.find(header_name);
-  return (it != headers_.end());
+  return headers_.Contains(header_name);
 }
 
-size_t HttpRequestImpl::HeaderCount() const { return headers_.size(); }
+size_t HttpRequestImpl::HeaderCount() const { return headers_.Size(); }
 
-HttpRequest::HeadersMapKeys HttpRequestImpl::GetHeaderNames() const {
+/*HttpRequest::HeadersMapKeys HttpRequestImpl::GetHeaderNames() const {
   return HttpRequest::HeadersMapKeys{headers_};
-}
+}*/
 
 const std::string& HttpRequestImpl::GetCookie(
     const std::string& cookie_name) const {

@@ -105,12 +105,16 @@ void HttpResponse::SetSendFailed(
 void HttpResponse::SetHeader(std::string name, std::string value) {
   CheckHeaderName(name);
   CheckHeaderValue(value);
+
+  // TODO : fix interface
+  headers_.AddOrUpdate(name, value);
+  /*
   const auto header_it = headers_.find(name);
   if (header_it == headers_.end()) {
     headers_.emplace(std::move(name), std::move(value));
   } else {
     header_it->second = std::move(value);
-  }
+  }*/
 }
 
 void HttpResponse::SetContentType(
@@ -125,7 +129,7 @@ void HttpResponse::SetContentEncoding(std::string encoding) {
 
 void HttpResponse::SetStatus(HttpStatus status) { status_ = status; }
 
-void HttpResponse::ClearHeaders() { headers_.clear(); }
+void HttpResponse::ClearHeaders() { headers_.Clear(); }
 
 void HttpResponse::SetCookie(Cookie cookie) {
   CheckHeaderValue(cookie.Name());
@@ -142,17 +146,25 @@ void HttpResponse::SetCookie(Cookie cookie) {
 
 void HttpResponse::ClearCookies() { cookies_.clear(); }
 
-HttpResponse::HeadersMapKeys HttpResponse::GetHeaderNames() const {
+// TODO : fix me somehow
+/*HttpResponse::HeadersMapKeys HttpResponse::GetHeaderNames() const {
   return HttpResponse::HeadersMapKeys{headers_};
-}
+}*/
 
 const std::string& HttpResponse::GetHeader(
     const std::string& header_name) const {
-  return headers_.at(header_name);
+  // TODO : fix this nonsense
+  static thread_local std::string tmp;
+
+  tmp = std::string{headers_.Find(header_name)};
+  return tmp;
+  // TODO : fix me
+  // return headers_.at(header_name);
 }
 
 bool HttpResponse::HasHeader(const std::string& header_name) const {
-  return headers_.find(header_name) != headers_.end();
+  return headers_.Contains(header_name);
+  // return headers_.find(header_name) != headers_.end();
 }
 
 HttpResponse::CookiesMapKeys HttpResponse::GetCookieNames() const {
@@ -183,20 +195,21 @@ void HttpResponse::SendResponse(engine::io::Socket& socket) {
   header.append(HttpStatusString(status_));
   header.append(kCrlf);
 
-  headers_.erase(USERVER_NAMESPACE::http::headers::kContentLength);
-  const auto end = headers_.cend();
-  if (headers_.find(USERVER_NAMESPACE::http::headers::kDate) == end) {
+  headers_.Erase(USERVER_NAMESPACE::http::headers::kContentLength);
+  //const auto end = headers_.cend();
+  if (!headers_.Contains(USERVER_NAMESPACE::http::headers::kDate)) {
     impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kDate,
                        GetCachedHttpDate());
   }
-  if (headers_.find(USERVER_NAMESPACE::http::headers::kContentType) == end) {
+  if (!headers_.Contains(USERVER_NAMESPACE::http::headers::kContentType)) {
     impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentType,
                        kDefaultContentTypeString);
   }
-  for (const auto& item : headers_) {
+  // TODO : we don't need this, right?
+  /*for (const auto& item : headers_) {
     impl::OutputHeader(header, item.first, item.second);
-  }
-  if (headers_.find(USERVER_NAMESPACE::http::headers::kConnection) == end) {
+  }*/
+  if (!headers_.Contains(USERVER_NAMESPACE::http::headers::kConnection)) {
     impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kConnection,
                        (request_.IsFinal() ? kClose : kKeepAlive));
   }
@@ -210,10 +223,10 @@ void HttpResponse::SendResponse(engine::io::Socket& socket) {
   if (IsBodyStreamed())
     SetBodyStreamed(socket, header);
   else
-    SetBodyNotstreamed(socket, header);
+    SetBodyNotStreamed(socket, header);
 }
 
-void HttpResponse::SetBodyNotstreamed(engine::io::Socket& socket,
+void HttpResponse::SetBodyNotStreamed(engine::io::Socket& socket,
                                       std::string& header) {
   const bool is_body_forbidden = IsBodyForbiddenForStatus(status_);
   const bool is_head_request = request_.GetOrigMethod() == HttpMethod::kHead;
@@ -223,7 +236,6 @@ void HttpResponse::SetBodyNotstreamed(engine::io::Socket& socket,
     impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentLength,
                        fmt::format(FMT_COMPILE("{}"), data.size()));
   }
-  header.append(kCrlf);
 
   if (is_body_forbidden && !data.empty()) {
     LOG_LIMITED_WARNING()
@@ -232,14 +244,27 @@ void HttpResponse::SetBodyNotstreamed(engine::io::Socket& socket,
         << " which does not allow one, it will be dropped";
   }
 
+  const auto serialized_headers = headers_.GetSerializedHeaders();
+  const auto headers_view = serialized_headers.GetData();
+
   ssize_t sent_bytes = 0;
   if (!is_head_request && !is_body_forbidden) {
     sent_bytes = socket.SendAll(
-        {{header.data(), header.size()}, {data.data(), data.size()}},
+        {
+            {header.data(), header.size()},
+            {headers_view.data(), headers_view.size()},
+            {kCrlf.data(), kCrlf.size()},
+            {data.data(), data.size()}
+        },
         engine::Deadline{});
   } else {
-    sent_bytes =
-        socket.SendAll(header.data(), header.size(), engine::Deadline{});
+    sent_bytes = socket.SendAll(
+        {
+            {header.data(), header.size()},
+            {headers_view.data(), headers_view.size()},
+            {kCrlf.data(), kCrlf.size()}
+        },
+        engine::Deadline{});
   }
 
   SetSentTime(std::chrono::steady_clock::now());
@@ -252,9 +277,10 @@ void HttpResponse::SetBodyStreamed(engine::io::Socket& socket,
       header, USERVER_NAMESPACE::http::headers::kTransferEncoding, "chunked");
 
   // send HTTP headers
+  // TODO : headers
   size_t sent_bytes = socket.SendAll(header.data(), header.size(), {});
 
-  std::string().swap(header);  // free memory before time consuming operation
+  std::string().swap(header);  // free memory before time-consuming operation
 
   // Transmit HTTP response body
   std::string body_part;
