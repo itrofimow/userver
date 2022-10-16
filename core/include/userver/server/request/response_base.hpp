@@ -70,6 +70,7 @@ class ResponseBase {
   std::chrono::steady_clock::time_point SentTime() const { return sent_time_; }
 
   virtual void SendResponse(engine::io::Socket& socket) = 0;
+  virtual std::string SerializeHeaders() = 0;
 
   virtual void SetStatusServiceUnavailable() = 0;
   virtual void SetStatusOk() = 0;

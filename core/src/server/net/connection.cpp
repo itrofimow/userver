@@ -225,24 +225,108 @@ bool Connection::NewRequest(std::shared_ptr<request::RequestBase>&& request_ptr,
 }
 
 void Connection::ProcessResponses(Queue::Consumer& consumer) noexcept {
+  if (config_.pipeline_responses) {
+    DoProcessResponsesPipelined(consumer);
+  } else {
+    DoProcessResponses(consumer);
+  }
+}
+
+void Connection::DoProcessResponses(Queue::Consumer& consumer) noexcept {
   try {
     QueueItem item;
     while (consumer.Pop(item)) {
-      HandleQueueItem(item);
-
-      // now we must complete processing
-      engine::TaskCancellationBlocker block_cancel;
-
-      /* In stream case we don't want a user task to exit
-       * until SendResponse() as the task produces body chunks.
-       */
-      SendResponse(*item.first);
-      item.first.reset();
-      item.second = {};
+      ProcessSingleResponse(item);
     }
   } catch (const std::exception& e) {
     LOG_ERROR() << "Exception for fd " << Fd() << ": " << e;
   }
+}
+
+void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept {
+  try {
+    while (!engine::current_task::IsCancelRequested()) {
+      constexpr std::size_t kMaxPipelinedResponses = 16;
+      std::array<QueueItem, kMaxPipelinedResponses> response_items{};
+      std::size_t response_items_size = 0;
+
+      while (response_items_size < kMaxPipelinedResponses) {
+        if (!consumer.PopNoblock(response_items[response_items_size])) {
+          break;
+        }
+
+        ++response_items_size;
+        if (response_items[response_items_size - 1]
+                .first->GetResponse()
+                .IsBodyStreamed()) {
+          break;
+        }
+      }
+
+      std::optional<QueueItem> streamed_response{};
+      if (response_items_size > 0) {
+        if (response_items[response_items_size - 1]
+                .first->GetResponse()
+                .IsBodyStreamed()) {
+          streamed_response.emplace(
+              std::move(response_items[response_items_size - 1]));
+          --response_items_size;
+        }
+      }
+
+      if (response_items_size > 0) {
+        std::array<std::string, kMaxPipelinedResponses> responses_headers{};
+        std::array<engine::io::IoData, kMaxPipelinedResponses * 2>
+            io_vec_array{};
+        for (std::size_t i = 0; i < response_items_size; ++i) {
+          auto& response = response_items[i].first->GetResponse();
+          UASSERT(!response.IsBodyStreamed());
+
+          HandleQueueItem(response_items[i]);
+          responses_headers[i] = response.SerializeHeaders();
+
+          io_vec_array[2 * i].data = responses_headers[i].data();
+          io_vec_array[2 * i].len = responses_headers[i].size();
+
+          io_vec_array[2 * i + 1].data = response.GetData().data();
+          io_vec_array[2 * i + 1].len = response.GetData().size();
+        }
+
+        [[maybe_unused]] const auto sent_bytes = peer_socket_.SendAll(
+            io_vec_array.data(), response_items_size * 2, {});
+
+        for (std::size_t i = 0; i < response_items_size; ++i) {
+          response_items[i].first.reset();
+          response_items[i].second = {};
+        }
+      }
+
+      if (streamed_response.has_value()) {
+        ProcessSingleResponse(*streamed_response);
+      } else if (response_items_size == 0) {
+        QueueItem response_item;
+        if (consumer.Pop(response_item)) {
+          ProcessSingleResponse(response_item);
+        }
+      }
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR() << "Exception for fd " << Fd() << ": " << e;
+  }
+}
+
+void Connection::ProcessSingleResponse(QueueItem& item) {
+  HandleQueueItem(item);
+
+  // now we must complete processing
+  engine::TaskCancellationBlocker block_cancel;
+
+  /* In stream case we don't want a user task to exit
+       * until SendResponse() as the task produces body chunks.
+   */
+  SendResponse(*item.first);
+  item.first.reset();
+  item.second = {};
 }
 
 void Connection::HandleQueueItem(QueueItem& item) {
