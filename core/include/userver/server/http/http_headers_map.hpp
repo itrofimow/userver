@@ -30,8 +30,7 @@ class HttpHeadersMap final {
   HttpSerializedHeaders GetSerializedHeaders() const;
  private:
   class Impl;
-
-  utils::FastPimpl<Impl, 1752, 8> impl_;
+  utils::FastPimpl<Impl, 2136, 8> impl_;
 };
 
 }
