@@ -164,7 +164,6 @@ const std::string& HttpResponse::GetHeader(
 
 bool HttpResponse::HasHeader(const std::string& header_name) const {
   return headers_.Contains(header_name);
-  // return headers_.find(header_name) != headers_.end();
 }
 
 HttpResponse::CookiesMapKeys HttpResponse::GetCookieNames() const {
