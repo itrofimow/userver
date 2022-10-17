@@ -166,49 +166,7 @@ void HttpResponse::SetHeadersEnd() { headers_end_.Send(); }
 bool HttpResponse::WaitForHeadersEnd() { return headers_end_.WaitForEvent(); }
 
 void HttpResponse::SendResponse(engine::io::Socket& socket) {
-  // According to https://www.chromium.org/spdy/spdy-whitepaper/
-  // "typical header sizes of 700-800 bytes is common"
-  // Adjusting it to 1KiB to fit jemalloc size class
-  static constexpr auto kTypicalHeadersSize = 1024;
-
-  std::string header;
-  header.reserve(kTypicalHeadersSize);
-
-  header.append("HTTP/");
-  fmt::format_to(std::back_inserter(header), FMT_COMPILE("{}.{} {} "),
-                 request_.GetHttpMajor(), request_.GetHttpMinor(),
-                 static_cast<int>(status_));
-  header.append(HttpStatusString(status_));
-  header.append(kCrlf);
-
-  headers_.erase(USERVER_NAMESPACE::http::headers::kContentLength);
-  const auto end = headers_.cend();
-  if (headers_.find(USERVER_NAMESPACE::http::headers::kDate) == end) {
-    static const std::string kFormatString = "%a, %d %b %Y %H:%M:%S %Z";
-    static const auto tz = cctz::utc_time_zone();
-    const auto& time_str = cctz::format(
-        kFormatString, utils::datetime::WallCoarseClock::now(), tz);
-
-    impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kDate,
-                       time_str);
-  }
-  if (headers_.find(USERVER_NAMESPACE::http::headers::kContentType) == end) {
-    impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentType,
-                       kDefaultContentTypeString);
-  }
-  for (const auto& item : headers_) {
-    impl::OutputHeader(header, item.first, item.second);
-  }
-  if (headers_.find(USERVER_NAMESPACE::http::headers::kConnection) == end) {
-    impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kConnection,
-                       (request_.IsFinal() ? kClose : kKeepAlive));
-  }
-  for (const auto& cookie : cookies_) {
-    header.append(USERVER_NAMESPACE::http::headers::kSetCookie);
-    header.append(kKeyValueHeaderSeparator);
-    cookie.second.AppendToString(header);
-    header.append(kCrlf);
-  }
+  auto header = SerializeHeaders();
 
   if (IsBodyStreamed())
     SetBodyStreamed(socket, header);
@@ -217,8 +175,6 @@ void HttpResponse::SendResponse(engine::io::Socket& socket) {
 }
 
 std::string HttpResponse::SerializeHeaders() {
-  UINVARIANT(!IsBodyStreamed(), "Shouldn't happen, pipelining logic is broken");
-
   // According to https://www.chromium.org/spdy/spdy-whitepaper/
   // "typical header sizes of 700-800 bytes is common"
   // Adjusting it to 1KiB to fit jemalloc size class
@@ -263,11 +219,14 @@ std::string HttpResponse::SerializeHeaders() {
     header.append(kCrlf);
   }
 
-  if (!IsBodyForbiddenForStatus(status_)) {
-    impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentLength,
-                       fmt::format(FMT_COMPILE("{}"), GetData().size()));
+  if (!IsBodyStreamed()) {
+    if (!IsBodyForbiddenForStatus(status_)) {
+      impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentLength,
+                         fmt::format(FMT_COMPILE("{}"), GetData().size()));
+    }
+
+    header.append(kCrlf);
   }
-  header.append(kCrlf);
 
   return header;
 }
@@ -277,12 +236,6 @@ void HttpResponse::SetBodyNotstreamed(engine::io::Socket& socket,
   const bool is_body_forbidden = IsBodyForbiddenForStatus(status_);
   const bool is_head_request = request_.GetOrigMethod() == HttpMethod::kHead;
   const auto& data = GetData();
-
-  if (!is_body_forbidden) {
-    impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentLength,
-                       fmt::format(FMT_COMPILE("{}"), data.size()));
-  }
-  header.append(kCrlf);
 
   if (is_body_forbidden && !data.empty()) {
     LOG_LIMITED_WARNING()

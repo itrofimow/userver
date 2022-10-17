@@ -19,6 +19,8 @@
 #include <userver/utils/assert.hpp>
 #include <userver/utils/scope_guard.hpp>
 
+#include <boost/container/small_vector.hpp>
+
 USERVER_NAMESPACE_BEGIN
 
 namespace server::net {
@@ -245,66 +247,77 @@ void Connection::DoProcessResponses(Queue::Consumer& consumer) noexcept {
 
 void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept {
   try {
+    // Seams reasonable, also used in TFB benchmarks
+    constexpr std::size_t kMaxPipelinedResponses = 16;
+    // 16Kb, could probably be increased. Doesn't account headers size
+    constexpr std::size_t kAccumulatedResponsesSizeThreshold = 1UL < 14;
+
+    boost::container::small_vector<QueueItem, kMaxPipelinedResponses>
+        responses_to_pipeline;
+    boost::container::small_vector<std::string, kMaxPipelinedResponses>
+        response_headers;
+    boost::container::small_vector<engine::io::IoData, kMaxPipelinedResponses * 2> io_vec;
+
     while (!engine::current_task::IsCancelRequested()) {
-      constexpr std::size_t kMaxPipelinedResponses = 16;
-      std::array<QueueItem, kMaxPipelinedResponses> response_items{};
-      std::size_t response_items_size = 0;
-
-      while (response_items_size < kMaxPipelinedResponses) {
-        if (!consumer.PopNoblock(response_items[response_items_size])) {
-          break;
-        }
-
-        ++response_items_size;
-        if (response_items[response_items_size - 1]
-                .first->GetResponse()
-                .IsBodyStreamed()) {
-          break;
-        }
-      }
-
+      size_t accumulated_responses_size_ = 0;
       std::optional<QueueItem> streamed_response{};
-      if (response_items_size > 0) {
-        if (response_items[response_items_size - 1]
-                .first->GetResponse()
-                .IsBodyStreamed()) {
-          streamed_response.emplace(
-              std::move(response_items[response_items_size - 1]));
-          --response_items_size;
+
+      // We gather ready-to-send responses until either
+      // 1. their count reaches kMaxPipelinedResponses
+      // 2. their total body size reaches kAccumulatedResponsesSizeThreshold (
+      // and we don't account headers size here)
+      // 3. we meet streamed response - logic gets too complicated if we try to
+      // pipeline it as well
+      while (responses_to_pipeline.size() < kMaxPipelinedResponses &&
+             accumulated_responses_size_ < kAccumulatedResponsesSizeThreshold) {
+        QueueItem item;
+        if (!consumer.PopNoblock(item)) {
+          break;
         }
+
+        if (item.first->GetResponse().IsBodyStreamed()) {
+          streamed_response.emplace(std::move(item));
+          break;
+        }
+
+        accumulated_responses_size_ += item.first->GetResponse().GetData().size();
+        responses_to_pipeline.push_back(std::move(item));
       }
 
-      if (response_items_size > 0) {
-        std::array<std::string, kMaxPipelinedResponses> responses_headers{};
-        std::array<engine::io::IoData, kMaxPipelinedResponses * 2>
-            io_vec_array{};
-        for (std::size_t i = 0; i < response_items_size; ++i) {
-          auto& response = response_items[i].first->GetResponse();
+      if (!responses_to_pipeline.empty()) {
+        // Now we gather responses into io_vec, each response adds 2 entries:
+        // one for headers, one for body
+        for (auto& item : responses_to_pipeline) {
+          auto& response = item.first->GetResponse();
           UASSERT(!response.IsBodyStreamed());
 
-          HandleQueueItem(response_items[i]);
-          responses_headers[i] = response.SerializeHeaders();
+          HandleQueueItem(item);
+          response_headers.push_back(response.SerializeHeaders());
 
-          io_vec_array[2 * i].data = responses_headers[i].data();
-          io_vec_array[2 * i].len = responses_headers[i].size();
-
-          io_vec_array[2 * i + 1].data = response.GetData().data();
-          io_vec_array[2 * i + 1].len = response.GetData().size();
+          io_vec.push_back({response_headers.back().data(), response_headers.back().size()});
+          io_vec.push_back({response.GetData().data(), response.GetData().size()});
         }
 
-        [[maybe_unused]] const auto sent_bytes = peer_socket_.SendAll(
-            io_vec_array.data(), response_items_size * 2, {});
+        [[maybe_unused]] const auto bytes_sent = peer_socket_.SendAll(
+            io_vec.data(), io_vec.size(), {});
 
-        for (std::size_t i = 0; i < response_items_size; ++i) {
-          response_items[i].first.reset();
-          response_items[i].second = {};
+        for (auto& item : responses_to_pipeline) {
+          item.first.reset();
+          item.second = {};
         }
+
+        // cleanup
+        responses_to_pipeline.clear();
+        response_headers.clear();
+        io_vec.clear();
       }
 
       if (streamed_response.has_value()) {
         ProcessSingleResponse(*streamed_response);
-      } else if (response_items_size == 0) {
+      } else if (responses_to_pipeline.empty()) {
         QueueItem response_item;
+        // Since we only gather ready responses for pipelining logic above, we
+        // have to wait here to avoid spinning, thus Pop instead of PopNoblock.
         if (consumer.Pop(response_item)) {
           ProcessSingleResponse(response_item);
         }
@@ -322,7 +335,7 @@ void Connection::ProcessSingleResponse(QueueItem& item) {
   engine::TaskCancellationBlocker block_cancel;
 
   /* In stream case we don't want a user task to exit
-       * until SendResponse() as the task produces body chunks.
+   * until SendResponse() as the task produces body chunks.
    */
   SendResponse(*item.first);
   item.first.reset();
