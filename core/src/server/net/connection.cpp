@@ -394,8 +394,7 @@ void Connection::SendResponse(request::RequestBase& request) {
   ++stats_->requests_processed_count;
 
   request.WriteAccessLogs(request_handler_.LoggerAccess(),
-                          request_handler_.LoggerAccessTskv(),
-                          std::chrono::system_clock::now(), remote_address_);
+                          request_handler_.LoggerAccessTskv(), remote_address_);
 }
 
 }  // namespace server::net
