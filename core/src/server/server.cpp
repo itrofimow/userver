@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <stdexcept>
 
+// TODO : ugly, fix somehow
+#include <userver/server/handlers/inspect_requests.hpp>
+
 #include <engine/ev/thread_pool.hpp>
 #include <engine/task/task_processor.hpp>
 #include <server/handlers/http_handler_base_statistics.hpp>
@@ -138,12 +141,15 @@ void ServerImpl::InitPortInfo(
       component_context, config.logger_access, config.logger_access_tskv,
       is_monitor, config.server_name);
 
-  auto queue = requests_view_->GetQueue();
-  requests_view_->StartBackgroudWorker();
-  auto hook = [queue](std::shared_ptr<request::RequestBase> request) {
-    queue->enqueue(request);
-  };
-  info.request_handler_->SetNewRequestHook(std::move(hook));
+  // TODO : ugly, fix
+  if (component_context.Contains(server::handlers::InspectRequests::kName)) {
+    auto queue = requests_view_->GetQueue();
+    requests_view_->StartBackgroudWorker();
+    auto hook = [queue](std::shared_ptr<request::RequestBase> request) {
+      queue->enqueue(request);
+    };
+    info.request_handler_->SetNewRequestHook(std::move(hook));
+  }
 
   info.endpoint_info_ = std::make_shared<net::EndpointInfo>(
       listener_config, *info.request_handler_);
