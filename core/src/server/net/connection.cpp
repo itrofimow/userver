@@ -306,6 +306,10 @@ void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept
           item.second = {};
         }
 
+        // TODO : fix metrics
+        ++stats_->requests_processed_in_pipeline;
+        stats_->requests_processed_in_pipeline_total += responses_to_pipeline.size();
+
         // cleanup
         responses_to_pipeline.clear();
         response_headers.clear();

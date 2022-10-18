@@ -209,6 +209,13 @@ formats::json::Value Server::GetMonitorData(
         server_stats.requests_processed_count.load();
     json_request_stats["parsing"] =
         server_stats.parser_stats.parsing_request_count.load();
+    json_request_stats["in_pipeline"] =
+        server_stats.requests_processed_in_pipeline.load();
+    json_request_stats["in_pipeline_total"] =
+        server_stats.requests_processed_in_pipeline_total.load();
+    json_request_stats["pipelined_ratio"] =
+        1.0 * server_stats.requests_processed_in_pipeline_total.load() /
+              server_stats.requests_processed_in_pipeline.load();
 
     json_data["requests"] = std::move(json_request_stats);
   }
