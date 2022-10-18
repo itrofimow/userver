@@ -21,11 +21,21 @@ void RequestBase::SetResponseNotifyTime() {
 }
 
 void RequestBase::SetStartSendResponseTime() {
-  start_send_response_time_ = std::chrono::steady_clock::now();
+  SetStartSendResponseTime(std::chrono::steady_clock::now());
+}
+
+void RequestBase::SetStartSendResponseTime(
+    std::chrono::steady_clock::time_point tp) {
+  start_send_response_time_ = tp;
 }
 
 void RequestBase::SetFinishSendResponseTime() {
-  finish_send_response_time_ = std::chrono::steady_clock::now();
+  SetFinishSendResponseTime(std::chrono::steady_clock::now());
+}
+
+void RequestBase::SetFinishSendResponseTime(
+    std::chrono::steady_clock::time_point tp) {
+  finish_send_response_time_ = tp;
   AccountResponseTime();
 }
 
