@@ -19,6 +19,8 @@
 #include <userver/utils/assert.hpp>
 #include <userver/utils/scope_guard.hpp>
 
+#include <boost/container/small_vector.hpp>
+
 USERVER_NAMESPACE_BEGIN
 
 namespace server::net {
@@ -225,24 +227,119 @@ bool Connection::NewRequest(std::shared_ptr<request::RequestBase>&& request_ptr,
 }
 
 void Connection::ProcessResponses(Queue::Consumer& consumer) noexcept {
+  if (config_.pipeline_responses) {
+    DoProcessResponsesPipelined(consumer);
+  } else {
+    DoProcessResponses(consumer);
+  }
+}
+
+void Connection::DoProcessResponses(Queue::Consumer& consumer) noexcept {
   try {
     QueueItem item;
     while (consumer.Pop(item)) {
-      HandleQueueItem(item);
-
-      // now we must complete processing
-      engine::TaskCancellationBlocker block_cancel;
-
-      /* In stream case we don't want a user task to exit
-       * until SendResponse() as the task produces body chunks.
-       */
-      SendResponse(*item.first);
-      item.first.reset();
-      item.second = {};
+      ProcessSingleResponse(item);
     }
   } catch (const std::exception& e) {
     LOG_ERROR() << "Exception for fd " << Fd() << ": " << e;
   }
+}
+
+void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept {
+  try {
+    // Seams reasonable, also used in TFB benchmarks
+    constexpr std::size_t kMaxPipelinedResponses = 16;
+    // 16Kb, could probably be increased. Doesn't account headers size
+    constexpr std::size_t kAccumulatedResponsesSizeThreshold = 1UL < 14;
+
+    boost::container::small_vector<QueueItem, kMaxPipelinedResponses>
+        responses_to_pipeline;
+    boost::container::small_vector<std::string, kMaxPipelinedResponses>
+        response_headers;
+    boost::container::small_vector<engine::io::IoData, kMaxPipelinedResponses * 2> io_vec;
+
+    while (!engine::current_task::IsCancelRequested()) {
+      size_t accumulated_responses_size_ = 0;
+      std::optional<QueueItem> streamed_response{};
+
+      // We gather ready-to-send responses until either
+      // 1. their count reaches kMaxPipelinedResponses
+      // 2. their total body size reaches kAccumulatedResponsesSizeThreshold (
+      // and we don't account headers size here)
+      // 3. we meet streamed response - logic gets too complicated if we try to
+      // pipeline it as well
+      while (responses_to_pipeline.size() < kMaxPipelinedResponses &&
+             accumulated_responses_size_ < kAccumulatedResponsesSizeThreshold) {
+        QueueItem item;
+        if (!consumer.PopNoblock(item)) {
+          break;
+        }
+
+        if (item.first->GetResponse().IsBodyStreamed()) {
+          streamed_response.emplace(std::move(item));
+          break;
+        }
+
+        accumulated_responses_size_ += item.first->GetResponse().GetData().size();
+        responses_to_pipeline.push_back(std::move(item));
+      }
+
+      if (!responses_to_pipeline.empty()) {
+        // Now we gather responses into io_vec, each response adds 2 entries:
+        // one for headers, one for body
+        for (auto& item : responses_to_pipeline) {
+          auto& response = item.first->GetResponse();
+          UASSERT(!response.IsBodyStreamed());
+
+          HandleQueueItem(item);
+          response_headers.push_back(response.SerializeHeaders());
+
+          io_vec.push_back({response_headers.back().data(), response_headers.back().size()});
+          io_vec.push_back({response.GetData().data(), response.GetData().size()});
+        }
+
+        [[maybe_unused]] const auto bytes_sent = peer_socket_.SendAll(
+            io_vec.data(), io_vec.size(), {});
+
+        for (auto& item : responses_to_pipeline) {
+          item.first.reset();
+          item.second = {};
+        }
+
+        // cleanup
+        responses_to_pipeline.clear();
+        response_headers.clear();
+        io_vec.clear();
+      }
+
+      if (streamed_response.has_value()) {
+        ProcessSingleResponse(*streamed_response);
+      } else if (responses_to_pipeline.empty()) {
+        QueueItem response_item;
+        // Since we only gather ready responses for pipelining logic above, we
+        // have to wait here to avoid spinning, thus Pop instead of PopNoblock.
+        if (consumer.Pop(response_item)) {
+          ProcessSingleResponse(response_item);
+        }
+      }
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR() << "Exception for fd " << Fd() << ": " << e;
+  }
+}
+
+void Connection::ProcessSingleResponse(QueueItem& item) {
+  HandleQueueItem(item);
+
+  // now we must complete processing
+  engine::TaskCancellationBlocker block_cancel;
+
+  /* In stream case we don't want a user task to exit
+   * until SendResponse() as the task produces body chunks.
+   */
+  SendResponse(*item.first);
+  item.first.reset();
+  item.second = {};
 }
 
 void Connection::HandleQueueItem(QueueItem& item) {

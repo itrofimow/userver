@@ -134,6 +134,10 @@ properties:
                         type: integer
                         description: timeout in seconds to drop connection if there's not data received from it
                         defaultDescription: 600
+                    pipeline_responses:
+                        type: boolean
+                        description: we
+                        defaultDescription: false
             shards:
                 type: integer
                 description: how many concurrent tasks harvest data from a single socket; do not set if not sure what it is doing
@@ -178,6 +182,10 @@ properties:
                         type: integer
                         description: timeout in seconds to drop connection if there's not data received from it
                         defaultDescription: 600
+                    pipeline_responses:
+                        type: boolean
+                        description: we
+                        defaultDescription: false
             handler-defaults:
                 type: object
                 description: handler defaults options

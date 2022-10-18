@@ -168,6 +168,15 @@ void HttpResponse::SetHeadersEnd() { headers_end_.Send(); }
 bool HttpResponse::WaitForHeadersEnd() { return headers_end_.WaitForEvent(); }
 
 void HttpResponse::SendResponse(engine::io::Socket& socket) {
+  auto header = SerializeHeaders();
+
+  if (IsBodyStreamed())
+    SetBodyStreamed(socket, header);
+  else
+    SetBodyNotstreamed(socket, header);
+}
+
+std::string HttpResponse::SerializeHeaders() {
   // According to https://www.chromium.org/spdy/spdy-whitepaper/
   // "typical header sizes of 700-800 bytes is common"
   // Adjusting it to 1KiB to fit jemalloc size class
@@ -209,10 +218,16 @@ void HttpResponse::SendResponse(engine::io::Socket& socket) {
     header.append(kCrlf);
   }
 
-  if (IsBodyStreamed())
-    SetBodyStreamed(socket, header);
-  else
-    SetBodyNotstreamed(socket, header);
+  if (!IsBodyStreamed()) {
+    if (!IsBodyForbiddenForStatus(status_)) {
+      impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentLength,
+                         fmt::format(FMT_COMPILE("{}"), GetData().size()));
+    }
+
+    header.append(kCrlf);
+  }
+
+  return header;
 }
 
 void HttpResponse::SetBodyNotstreamed(engine::io::Socket& socket,
@@ -220,12 +235,6 @@ void HttpResponse::SetBodyNotstreamed(engine::io::Socket& socket,
   const bool is_body_forbidden = IsBodyForbiddenForStatus(status_);
   const bool is_head_request = request_.GetOrigMethod() == HttpMethod::kHead;
   const auto& data = GetData();
-
-  if (!is_body_forbidden) {
-    impl::OutputHeader(header, USERVER_NAMESPACE::http::headers::kContentLength,
-                       fmt::format(FMT_COMPILE("{}"), data.size()));
-  }
-  header.append(kCrlf);
 
   if (is_body_forbidden && !data.empty()) {
     LOG_LIMITED_WARNING()

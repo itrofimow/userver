@@ -18,6 +18,8 @@ ConnectionConfig Parse(const yaml_config::YamlConfig& value,
   config.keepalive_timeout =
       value["keepalive_timeout"].As<std::chrono::seconds>(
           config.keepalive_timeout);
+  config.pipeline_responses =
+      value["pipeline_responses"].As<bool>(config.pipeline_responses);
 
   return config;
 }

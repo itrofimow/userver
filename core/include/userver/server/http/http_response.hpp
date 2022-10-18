@@ -97,6 +97,8 @@ class HttpResponse final : public request::ResponseBase {
   /// @cond
   // TODO: server internals. remove from public interface
   void SendResponse(engine::io::Socket& socket) override;
+
+  std::string SerializeHeaders() override;
   /// @endcond
 
   void SetStatusServiceUnavailable() override {
