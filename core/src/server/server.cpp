@@ -189,6 +189,10 @@ formats::json::Value Server::GetMonitorData(
         server_stats.requests_processed_count.load();
     json_request_stats["parsing"] =
         server_stats.parser_stats.parsing_request_count.load();
+    json_request_stats["requests_pipelined"] =
+        server_stats.total_requests_pipelined.load();
+    json_request_stats["pipelines_executed"] =
+        server_stats.pipelines_executed.load();
 
     json_data["requests"] = std::move(json_request_stats);
   }

@@ -455,6 +455,8 @@ void Connection::SendResponses(PipelinedResponsesArray& responses) {
 
     stats_->active_request_count -= responses.size();
     stats_->requests_processed_count += responses.size();
+    stats_->total_requests_pipelined += responses.size();
+    ++stats_->pipelines_executed;
 
     foreach_in_pipeline([this](request::RequestBase& request) {
       request.WriteAccessLogs(request_handler_.LoggerAccess(),
