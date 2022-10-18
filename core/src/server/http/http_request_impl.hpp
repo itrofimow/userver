@@ -66,7 +66,8 @@ class HttpRequestImpl final : public request::RequestBase {
   const std::string& GetHeader(const std::string& header_name) const;
   bool HasHeader(const std::string& header_name) const;
   size_t HeaderCount() const;
-  HttpRequest::HeadersMapKeys GetHeaderNames() const;
+  // TODO : fix me
+  // HttpRequest::HeadersMapKeys GetHeaderNames() const;
 
   const std::string& GetCookie(const std::string& cookie_name) const;
   bool HasCookie(const std::string& cookie_name) const;

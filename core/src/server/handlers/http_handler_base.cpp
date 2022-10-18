@@ -55,9 +55,10 @@ constexpr bool kIncludeServerHttpMetrics = false;
 template <typename HeadersHolder>
 std::string GetHeadersLogString(const HeadersHolder& headers_holder) {
   formats::json::ValueBuilder json_headers(formats::json::Type::kObject);
-  for (const auto& header_name : headers_holder.GetHeaderNames()) {
+  // TODO : fix me
+  /* for (const auto& header_name : headers_holder.GetHeaderNames()) {
     json_headers[header_name] = headers_holder.GetHeader(header_name);
-  }
+  }*/
   return formats::json::ToString(json_headers.ExtractValue());
 }
 

@@ -116,9 +116,9 @@ bool HttpRequest::HasHeader(const std::string& header_name) const {
 
 size_t HttpRequest::HeaderCount() const { return impl_.HeaderCount(); }
 
-HttpRequest::HeadersMapKeys HttpRequest::GetHeaderNames() const {
+/*HttpRequest::HeadersMapKeys HttpRequest::GetHeaderNames() const {
   return impl_.GetHeaderNames();
-}
+}*/
 
 const std::string& HttpRequest::GetCookie(
     const std::string& cookie_name) const {

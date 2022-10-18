@@ -9,7 +9,7 @@
 
 USERVER_NAMESPACE_BEGIN
 
-namespace {
+/*namespace {
 
 const server::http::HttpResponse::HeadersMap kHeaders = {
     {"X-Header1", "value"}, {"X-Header2", "value"}, {"X-Header3", "value"},
@@ -68,6 +68,6 @@ void http_headers_serialization_ostreams(benchmark::State& state) {
 }  // namespace
 
 BENCHMARK(http_headers_serialization_no_ostreams);
-BENCHMARK(http_headers_serialization_ostreams);
+BENCHMARK(http_headers_serialization_ostreams);*/
 
 USERVER_NAMESPACE_END

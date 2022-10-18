@@ -22,8 +22,9 @@ InspectRequests::InspectRequests(
 formats::json::ValueBuilder FormatHeadersAsJson(
     const http::HttpRequestImpl& request) {
   formats::json::ValueBuilder result(formats::json::Type::kObject);
-  for (const auto& name : request.GetHeaderNames())
-    result[name] = request.GetHeader(name);
+  // TODO : fix me
+  /*for (const auto& name : request.GetHeaderNames())
+    result[name] = request.GetHeader(name);*/
 
   return result;
 }

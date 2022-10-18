@@ -11,6 +11,7 @@
 #include <userver/engine/single_consumer_event.hpp>
 #include <userver/http/content_type.hpp>
 #include <userver/server/http/http_response_cookie.hpp>
+#include <userver/server/http/http_headers_map.hpp>
 #include <userver/server/request/response_base.hpp>
 #include <userver/utils/impl/projecting_view.hpp>
 #include <userver/utils/str_icase.hpp>
@@ -33,11 +34,10 @@ class HttpRequestImpl;
 /// @brief HTTP Response data
 class HttpResponse final : public request::ResponseBase {
  public:
-  using HeadersMap =
-      std::unordered_map<std::string, std::string, utils::StrIcaseHash,
-                         utils::StrIcaseEqual>;
+  using HeadersMap = HttpHeadersMap;
 
-  using HeadersMapKeys = decltype(utils::impl::MakeKeysView(HeadersMap()));
+  // TODO : fix me
+  // using HeadersMapKeys = decltype(utils::impl::MakeKeysView(HeadersMap()));
 
   using CookiesMap = std::unordered_map<std::string_view, Cookie>;
 
@@ -77,7 +77,8 @@ class HttpResponse final : public request::ResponseBase {
   HttpStatus GetStatus() const { return status_; }
 
   /// @return List of HTTP headers names.
-  HeadersMapKeys GetHeaderNames() const;
+  // TODO : fix me
+  // HeadersMapKeys GetHeaderNames() const;
 
   /// @return Value of the header with case insensitive name header_name, or an
   /// empty string if no such header.
@@ -119,7 +120,7 @@ class HttpResponse final : public request::ResponseBase {
 
  private:
   void SetBodyStreamed(engine::io::Socket& socket, std::string& header);
-  void SetBodyNotstreamed(engine::io::Socket& socket, std::string& header);
+  void SetBodyNotStreamed(engine::io::Socket& socket, std::string& header);
 
   const HttpRequestImpl& request_;
   HttpStatus status_ = HttpStatus::kOk;
