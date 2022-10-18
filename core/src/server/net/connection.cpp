@@ -245,18 +245,21 @@ void Connection::DoProcessResponses(Queue::Consumer& consumer) noexcept {
   }
 }
 
-void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept {
+void Connection::DoProcessResponsesPipelined(
+    Queue::Consumer& consumer) noexcept {
   try {
     // Seams reasonable, also used in TFB benchmarks
     constexpr std::size_t kMaxPipelinedResponses = 16;
     // 16Kb, could probably be increased. Doesn't account headers size
-    constexpr std::size_t kAccumulatedResponsesSizeThreshold = 1UL < 14;
+    constexpr std::size_t kAccumulatedResponsesSizeThreshold = 1UL << 14;
 
     boost::container::small_vector<QueueItem, kMaxPipelinedResponses>
         responses_to_pipeline;
     boost::container::small_vector<std::string, kMaxPipelinedResponses>
         response_headers;
-    boost::container::small_vector<engine::io::IoData, kMaxPipelinedResponses * 2> io_vec;
+    boost::container::small_vector<engine::io::IoData,
+                                   kMaxPipelinedResponses * 2>
+        io_vec;
 
     while (!engine::current_task::IsCancelRequested()) {
       size_t accumulated_responses_size_ = 0;
@@ -280,7 +283,8 @@ void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept
           break;
         }
 
-        accumulated_responses_size_ += item.first->GetResponse().GetData().size();
+        accumulated_responses_size_ +=
+            item.first->GetResponse().GetData().size();
         responses_to_pipeline.push_back(std::move(item));
       }
 
@@ -294,12 +298,14 @@ void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept
           HandleQueueItem(item);
           response_headers.push_back(response.SerializeHeaders());
 
-          io_vec.push_back({response_headers.back().data(), response_headers.back().size()});
-          io_vec.push_back({response.GetData().data(), response.GetData().size()});
+          io_vec.push_back(
+              {response_headers.back().data(), response_headers.back().size()});
+          io_vec.push_back(
+              {response.GetData().data(), response.GetData().size()});
         }
 
-        [[maybe_unused]] const auto bytes_sent = peer_socket_.SendAll(
-            io_vec.data(), io_vec.size(), {});
+        [[maybe_unused]] const auto bytes_sent =
+            peer_socket_.SendAll(io_vec.data(), io_vec.size(), {});
 
         for (auto& item : responses_to_pipeline) {
           item.first.reset();
