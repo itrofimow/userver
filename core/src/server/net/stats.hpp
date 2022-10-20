@@ -30,9 +30,8 @@ struct Stats {
         parser_stats(other.parser_stats),
         active_request_count(other.active_request_count.load()),
         requests_processed_count(other.requests_processed_count.load()),
-        requests_processed_in_pipeline(other.requests_processed_in_pipeline.load()),
-        requests_processed_in_pipeline_total(other.requests_processed_in_pipeline_total.load())
-  {}
+        total_requests_pipelined(other.total_requests_pipelined.load()),
+        pipelines_executed(other.pipelines_executed.load()) {}
 
   Stats() = default;
 
@@ -45,8 +44,8 @@ struct Stats {
   ParserStats parser_stats;
   std::atomic<size_t> active_request_count{0};
   std::atomic<size_t> requests_processed_count{0};
-  std::atomic<size_t> requests_processed_in_pipeline{0};
-  std::atomic<size_t> requests_processed_in_pipeline_total{0};
+  std::atomic<size_t> total_requests_pipelined{0};
+  std::atomic<size_t> pipelines_executed{0};
 };
 
 inline Stats& operator+=(Stats& lhs, const Stats& rhs) {
@@ -57,8 +56,8 @@ inline Stats& operator+=(Stats& lhs, const Stats& rhs) {
   lhs.parser_stats += rhs.parser_stats;
   lhs.active_request_count += rhs.active_request_count;
   lhs.requests_processed_count += rhs.requests_processed_count;
-  lhs.requests_processed_in_pipeline += rhs.requests_processed_in_pipeline;
-  lhs.requests_processed_in_pipeline_total += rhs.requests_processed_in_pipeline_total;
+  lhs.total_requests_pipelined += rhs.total_requests_pipelined;
+  lhs.pipelines_executed += rhs.total_requests_pipelined;
   return lhs;
 }
 

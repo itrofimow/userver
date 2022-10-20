@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 
+#include <boost/container/small_vector.hpp>
+
 #include <server/http/request_handler_base.hpp>
 #include <server/net/connection_config.hpp>
 #include <server/net/stats.hpp>
@@ -60,6 +62,13 @@ class Connection final : public std::enable_shared_from_this<Connection> {
                               engine::TaskWithResult<void>>;
   using Queue = concurrent::SpscQueue<QueueItem>;
 
+  // Seams reasonable, also used in TFB benchmarks
+  static constexpr std::size_t kMaxPipelinedResponses = 16;
+  // 16Kb, could probably be increased. Doesn't account headers size
+  static constexpr std::size_t kAccumulatedResponsesSizeThreshold = 1UL << 14;
+  using PipelinedResponsesArray =
+      boost::container::small_vector<QueueItem, kMaxPipelinedResponses>;
+
   void Shutdown() noexcept;
 
   bool IsRequestTasksEmpty() const noexcept;
@@ -75,6 +84,7 @@ class Connection final : public std::enable_shared_from_this<Connection> {
 
   void HandleQueueItem(QueueItem& item);
   void SendResponse(request::RequestBase& request);
+  void SendResponses(PipelinedResponsesArray& responses);
 
   engine::TaskProcessor& task_processor_;
   const ConnectionConfig& config_;

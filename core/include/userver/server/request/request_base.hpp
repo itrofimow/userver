@@ -31,7 +31,9 @@ class RequestBase {
   void SetTaskCreateTime();
   void SetTaskStartTime();
   void SetResponseNotifyTime();
+  void SetStartSendResponseTime(std::chrono::steady_clock::time_point tp);
   void SetStartSendResponseTime();
+  void SetFinishSendResponseTime(std::chrono::steady_clock::time_point tp);
   void SetFinishSendResponseTime();
 
   virtual void SetMatchedPathLength(size_t length) = 0;

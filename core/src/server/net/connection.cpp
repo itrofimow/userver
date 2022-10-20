@@ -245,18 +245,10 @@ void Connection::DoProcessResponses(Queue::Consumer& consumer) noexcept {
   }
 }
 
-void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept {
+void Connection::DoProcessResponsesPipelined(
+    Queue::Consumer& consumer) noexcept {
   try {
-    // Seams reasonable, also used in TFB benchmarks
-    constexpr std::size_t kMaxPipelinedResponses = 16;
-    // 16Kb, could probably be increased. Doesn't account headers size
-    constexpr std::size_t kAccumulatedResponsesSizeThreshold = 1UL < 14;
-
-    boost::container::small_vector<QueueItem, kMaxPipelinedResponses>
-        responses_to_pipeline;
-    boost::container::small_vector<std::string, kMaxPipelinedResponses>
-        response_headers;
-    boost::container::small_vector<engine::io::IoData, kMaxPipelinedResponses * 2> io_vec;
+    PipelinedResponsesArray responses_to_pipeline;
 
     while (!engine::current_task::IsCancelRequested()) {
       size_t accumulated_responses_size_ = 0;
@@ -280,40 +272,22 @@ void Connection::DoProcessResponsesPipelined(Queue::Consumer& consumer) noexcept
           break;
         }
 
-        accumulated_responses_size_ += item.first->GetResponse().GetData().size();
+        accumulated_responses_size_ +=
+            item.first->GetResponse().GetData().size();
         responses_to_pipeline.push_back(std::move(item));
       }
 
       if (!responses_to_pipeline.empty()) {
-        // Now we gather responses into io_vec, each response adds 2 entries:
-        // one for headers, one for body
-        for (auto& item : responses_to_pipeline) {
-          auto& response = item.first->GetResponse();
-          UASSERT(!response.IsBodyStreamed());
+        SendResponses(responses_to_pipeline);
 
-          HandleQueueItem(item);
-          response_headers.push_back(response.SerializeHeaders());
-
-          io_vec.push_back({response_headers.back().data(), response_headers.back().size()});
-          io_vec.push_back({response.GetData().data(), response.GetData().size()});
-        }
-
-        [[maybe_unused]] const auto bytes_sent = peer_socket_.SendAll(
-            io_vec.data(), io_vec.size(), {});
-
+        // cleanup
         for (auto& item : responses_to_pipeline) {
           item.first.reset();
           item.second = {};
         }
 
-        // TODO : fix metrics
-        ++stats_->requests_processed_in_pipeline;
-        stats_->requests_processed_in_pipeline_total += responses_to_pipeline.size();
-
         // cleanup
         responses_to_pipeline.clear();
-        response_headers.clear();
-        io_vec.clear();
       }
 
       if (streamed_response.has_value()) {
@@ -351,7 +325,8 @@ void Connection::HandleQueueItem(QueueItem& item) {
 
   if (engine::current_task::IsCancelRequested()) {
     // We could've packed all remaining requests into a vector and cancel them
-    // in parallel. But pipelining is almost never used so why bother.
+    // in parallel. But pipelining is almost never  used so why bother.
+    // TODO : cancel in parallel, since pipelining :)
     auto request_task = std::move(item.second);
     request_task.SyncCancel();
     LOG_DEBUG() << "Request processing interrupted";
@@ -412,6 +387,84 @@ void Connection::SendResponse(request::RequestBase& request) {
 
   request.WriteAccessLogs(request_handler_.LoggerAccess(),
                           request_handler_.LoggerAccessTskv(), remote_address_);
+}
+
+void Connection::SendResponses(PipelinedResponsesArray& responses) {
+  boost::container::small_vector<std::string, kMaxPipelinedResponses>
+      response_headers;
+  boost::container::small_vector<engine::io::IoData, kMaxPipelinedResponses * 2>
+      io_vec;
+
+  for (auto& item : responses) {
+    auto& response = item.first->GetResponse();
+    UASSERT(!response.IsBodyStreamed());
+    UASSERT(!response.IsSent());
+
+    HandleQueueItem(item);
+    response_headers.push_back(response.SerializeHeaders());
+
+    io_vec.push_back(
+        {response_headers.back().data(), response_headers.back().size()});
+    io_vec.push_back({response.GetData().data(), response.GetData().size()});
+  }
+
+  {
+    const auto now = [] { return std::chrono::steady_clock::now(); };
+    const auto foreach_in_pipeline = [&responses](auto&& f) {
+      for (auto& item : responses) {
+        f(*item.first);
+      }
+    };
+
+    foreach_in_pipeline([send_start = now()](request::RequestBase& request) {
+      request.SetStartSendResponseTime(send_start);
+    });
+
+    // now we must complete processing
+    engine::TaskCancellationBlocker block_cancel;
+
+    // TODO : reduce copy-parse from SendResponse
+    if (is_response_chain_valid_ && peer_socket_) {
+      try {
+        // TODO : handle per-response metrics from
+        // inside HttpResponse::SendResponse
+        [[maybe_unused]] const auto bytes_sent =
+            peer_socket_.SendAll(io_vec.data(), io_vec.size(), {});
+      } catch (const engine::io::IoSystemError& ex) {
+        // working with raw values because std::errc compares error_category
+        // default_error_category() fixed only in GCC 9.1 (PR libstdc++/60555)
+        auto log_level =
+            ex.Code().value() == static_cast<int>(std::errc::broken_pipe)
+                ? logging::Level::kWarning
+                : logging::Level::kError;
+        LOG(log_level) << "I/O error while sending data: " << ex;
+      } catch (const std::exception& ex) {
+        LOG_ERROR() << "Error while sending data: " << ex;
+        foreach_in_pipeline(
+            [send_failed = now()](request::RequestBase& request) {
+              request.GetResponse().SetSendFailed(send_failed);
+            });
+      }
+    } else {
+      foreach_in_pipeline([send_failed = now()](request::RequestBase& request) {
+        request.GetResponse().SetSendFailed(send_failed);
+      });
+    }
+    foreach_in_pipeline([finish_send = now()](request::RequestBase& request) {
+      request.SetFinishSendResponseTime(finish_send);
+    });
+
+    stats_->active_request_count -= responses.size();
+    stats_->requests_processed_count += responses.size();
+    stats_->total_requests_pipelined += responses.size();
+    ++stats_->pipelines_executed;
+
+    foreach_in_pipeline([this](request::RequestBase& request) {
+      request.WriteAccessLogs(request_handler_.LoggerAccess(),
+                              request_handler_.LoggerAccessTskv(),
+                              remote_address_);
+    });
+  }
 }
 
 }  // namespace server::net

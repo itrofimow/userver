@@ -136,7 +136,9 @@ properties:
                         defaultDescription: 600
                     pipeline_responses:
                         type: boolean
-                        description: we
+                        description: |
+                          whether to batch responses sending, if relevant (i.e. client pipelines):
+                          might increase throughput drastically for the cost of increased latencies
                         defaultDescription: false
             shards:
                 type: integer
@@ -184,7 +186,9 @@ properties:
                         defaultDescription: 600
                     pipeline_responses:
                         type: boolean
-                        description: we
+                        description: |
+                          whether to batch responses sending, if relevant (i.e. client pipelines):
+                          might increase throughput drastically for the cost of increased latencies
                         defaultDescription: false
             handler-defaults:
                 type: object
