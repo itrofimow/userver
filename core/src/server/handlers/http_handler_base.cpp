@@ -111,8 +111,8 @@ class RequestProcessor final {
     try {
       auto& span = tracing::Span::CurrentSpan();
       auto& response = http_request_.GetHttpResponse();
-      response.SetHeader(USERVER_NAMESPACE::http::headers::kXYaRequestId,
-                         span.GetLink());
+/*      response.SetHeader(USERVER_NAMESPACE::http::headers::kXYaRequestId,
+                         span.GetLink());*/
 
       const auto status_code = response.GetStatus();
       span.SetLogLevel(handler_.GetLogLevelForResponseStatus(status_code));
@@ -414,7 +414,7 @@ void HttpHandlerBase::HandleRequest(request::RequestBase& request,
     const auto& parent_span_id =
         http_request.GetHeader(USERVER_NAMESPACE::http::headers::kXYaSpanId);
 
-    const auto& yandex_request_id =
+    /*const auto& yandex_request_id =
         http_request.GetHeader(USERVER_NAMESPACE::http::headers::kXRequestId);
     const auto& yandex_backend_server = http_request.GetHeader(
         USERVER_NAMESPACE::http::headers::kXBackendServer);
@@ -430,15 +430,15 @@ void HttpHandlerBase::HandleRequest(request::RequestBase& request,
           yandex_backend_server,
           USERVER_NAMESPACE::http::headers::kXTaxiEnvoyProxyDstVhost,
           envoy_proxy);
-    }
+    }*/
 
     auto span = tracing::Span::MakeSpan(fmt::format("http/{}", HandlerName()),
                                         trace_id, parent_span_id);
 
-    response.SetHeader(USERVER_NAMESPACE::http::headers::kXYaTraceId,
+/*    response.SetHeader(USERVER_NAMESPACE::http::headers::kXYaTraceId,
                        span.GetTraceId());
     response.SetHeader(USERVER_NAMESPACE::http::headers::kXYaSpanId,
-                       span.GetSpanId());
+                       span.GetSpanId());*/
 
     span.SetLocalLogLevel(log_level_);
 

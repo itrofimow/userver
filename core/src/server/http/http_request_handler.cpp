@@ -96,7 +96,7 @@ engine::TaskWithResult<void> HttpRequestHandler::StartRequestTask(
       dynamic_cast<const http::HttpRequestImpl&>(*request);
   auto& http_response = http_request.GetHttpResponse();
   http_response.SetHeader(USERVER_NAMESPACE::http::headers::kServer,
-                          server_name_);
+                          "us");
   if (http_response.IsReady()) {
     // Request is broken somehow, user handler must not be called
     request->SetTaskCreateTime();
