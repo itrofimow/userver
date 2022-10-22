@@ -57,7 +57,7 @@ inline Stats& operator+=(Stats& lhs, const Stats& rhs) {
   lhs.active_request_count += rhs.active_request_count;
   lhs.requests_processed_count += rhs.requests_processed_count;
   lhs.total_requests_pipelined += rhs.total_requests_pipelined;
-  lhs.pipelines_executed += rhs.total_requests_pipelined;
+  lhs.pipelines_executed += rhs.pipelines_executed;
   return lhs;
 }
 
