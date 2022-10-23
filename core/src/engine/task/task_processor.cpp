@@ -60,6 +60,9 @@ void TaskProcessorThreadStartedHook() {
   EmitMagicNanosleep();
 }
 
+thread_local bool is_worker_thread = false;
+thread_local impl::TaskContext* next_task = nullptr;
+
 }  // namespace
 
 TaskProcessor::TaskProcessor(TaskProcessorConfig config,
@@ -146,8 +149,15 @@ void TaskProcessor::Schedule(impl::TaskContext* context) {
   // but oh well
   intrusive_ptr_add_ref(context);
 
-  task_queue_.enqueue(context);
-  // NOTE: task may be executed at this point
+  if (is_worker_thread) {
+    auto* prev = std::exchange(next_task, context);
+    if (prev != nullptr) {
+      task_queue_.enqueue(prev);
+    }
+  } else {
+    task_queue_.enqueue(context);
+    // NOTE: task may be executed at this point
+  }
 }
 
 void TaskProcessor::Adopt(impl::TaskContext& context) {
@@ -228,6 +238,11 @@ logging::LoggerPtr TaskProcessor::GetTaskTraceLogger() const {
 }
 
 impl::TaskContext* TaskProcessor::DequeueTask() {
+  auto* prev = std::exchange(next_task, nullptr);
+  if (prev != nullptr) {
+    return prev;
+  }
+
   impl::TaskContext* buf = nullptr;
 
   /* Current thread handles only a single TaskProcessor, so it's safe to store
@@ -254,6 +269,7 @@ void RegisterThreadStartedHook(std::function<void()> func) {
 
 void TaskProcessor::ProcessTasks() noexcept {
   TaskProcessorThreadStartedHook();
+  is_worker_thread = true;
 
   while (true) {
     // wrapping instance referenced in EnqueueTask
