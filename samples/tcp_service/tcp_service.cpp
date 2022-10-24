@@ -37,15 +37,19 @@ namespace samples::tcp {
 
 /// [TCP sample - ProcessSocket]
 void Hello::ProcessSocket(engine::io::Socket&& sock) {
-  std::string data;
-  data.resize(2);
+  constexpr std::size_t kReceiveBufferSize = 1024;
+  std::array<char, kReceiveBufferSize> data{};
 
+  std::size_t last_bytes_read = 0;
   while (!engine::current_task::ShouldCancel()) {
-    const auto read_bytes = sock.ReadAll(data.data(), 2, {});
-    if (read_bytes != 2 || data != "hi") {
-      sock.Close();
-      return;
+    bool is_readable = true;
+    if (last_bytes_read != kReceiveBufferSize) {
+      is_readable = sock.WaitReadable({});
     }
+
+    last_bytes_read = is_readable
+                          ? sock.RecvSome(data.data(), data.size(), {})
+                          : 0;
 
     const auto sent_bytes =
         sock.SendAll(greeting_.data(), greeting_.size(), {});
