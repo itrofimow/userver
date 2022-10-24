@@ -135,6 +135,21 @@ BENCHMARK(socket_send_all_v);
   });
 }
 
+void syscall_recv_ewouldblock(benchmark::State& state) {
+  engine::RunStandalone(1, [&]() {
+    const auto test_deadline = Deadline::FromDuration(kDeadlineMaxTime);
+    internal::net::TcpListener listener;
+    auto [server, client] = listener.MakeSocketPair(test_deadline);
+
+    char data[10]{};
+    const auto fd = server.Fd();
+    for (auto _ : state) {
+      benchmark::DoNotOptimize(::recv(fd, data, 10, 0));
+    }
+  });
+}
+BENCHMARK(syscall_recv_ewouldblock);
+
 // TODO(TAXICOMMON-5510) flaky, sometimes throws engine::io::IoTimeout
 // BENCHMARK(socket_send_all_range)->RangeMultiplier(10)->Range(10, 10000);
 
