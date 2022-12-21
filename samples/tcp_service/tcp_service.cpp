@@ -10,67 +10,42 @@ namespace samples::tcp {
 
 class Hello final : public components::TcpAcceptorBase {
  public:
-  static constexpr std::string_view kName = "tcp-hello";
+  static constexpr std::string_view kName = "tcp-echo";
 
   // Component is valid after construction and is able to accept requests
   Hello(const components::ComponentConfig& config,
         const components::ComponentContext& context)
-      : TcpAcceptorBase(config, context),
-        greeting_(config["greeting"].As<std::string>("hi")) {}
+      : TcpAcceptorBase(config, context) {}
 
   void ProcessSocket(engine::io::Socket&& sock) override;
-
-  static yaml_config::Schema GetStaticConfigSchema();
-
- private:
-  const std::string greeting_;
 };
 
 }  // namespace samples::tcp
-
-template <>
-inline constexpr bool components::kHasValidate<samples::tcp::Hello> = true;
 
 /// [TCP sample - component]
 
 namespace samples::tcp {
 
+constexpr std::string_view k200OkResponse =
+    "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+
 /// [TCP sample - ProcessSocket]
 void Hello::ProcessSocket(engine::io::Socket&& sock) {
   std::string data;
-  data.resize(2);
+  data.resize(1024);
 
   while (!engine::current_task::ShouldCancel()) {
-    const auto read_bytes = sock.ReadAll(data.data(), 2, {});
-    if (read_bytes != 2 || data != "hi") {
-      sock.Close();
-      return;
-    }
+    const auto read_bytes = sock.ReadSome(data.data(), data.size(), {});
 
     const auto sent_bytes =
-        sock.SendAll(greeting_.data(), greeting_.size(), {});
-    if (sent_bytes != greeting_.size()) {
+        sock.SendAll(k200OkResponse.data(), k200OkResponse.size(), {});
+    if (sent_bytes != k200OkResponse.size()) {
       return;
     }
   }
 }
 /// [TCP sample - ProcessSocket]
 
-/// [TCP sample - GetStaticConfigSchema]
-yaml_config::Schema Hello::GetStaticConfigSchema() {
-  return yaml_config::MergeSchemas<TcpAcceptorBase>(R"(
-    type: object
-    description: |
-      Component for accepting incomming TCP connections and reponding with some
-      greeting as long as the client sends 'hi'.
-    additionalProperties: false
-    properties:
-      greeting:
-          type: string
-          description: greeting to send to client
-          defaultDescription: hi
-  )");
-}
 /// [TCP sample - GetStaticConfigSchema]
 
 }  // namespace samples::tcp
