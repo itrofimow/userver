@@ -247,6 +247,22 @@ size_t Socket::SendAll(const IoData* list, std::size_t list_size,
   UASSERT(list);
   UASSERT(list_size > 0);
   UASSERT(list_size <= IOV_MAX);
+
+  for (std::size_t i = 0; i < list_size; ++i) {
+    const auto& iovec = list[i];
+    const auto len = iovec.len;
+
+    std::memcpy(buffered_send_data_.data() + buffer_size_, iovec.data, len);
+    buffer_size_ += len;
+  }
+
+  if (buffer_size_ != kMaxBufferSize) {
+    return 1;
+  }
+
+  const auto len = std::exchange(buffer_size_, 0);
+  return SendAll(buffered_send_data_.data(), len, deadline);
+
   auto& dir = fd_control_->Write();
   impl::Direction::SingleUserGuard guard(dir);
   if (list_size < kMaxStackSizeVector) {

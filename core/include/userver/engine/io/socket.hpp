@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 
 #include <initializer_list>
+#include <string>
 
 #include <userver/engine/deadline.hpp>
 #include <userver/engine/io/common.hpp>
@@ -173,6 +174,10 @@ class USERVER_NODISCARD Socket final : public RwBase {
   impl::FdControlHolder fd_control_;
   Sockaddr peername_;
   Sockaddr sockname_;
+
+  static constexpr std::size_t kMaxBufferSize = 332 * 1024;
+  std::string buffered_send_data_ = std::string(kMaxBufferSize, '0');
+  std::size_t buffer_size_{0};
 };
 
 }  // namespace engine::io
