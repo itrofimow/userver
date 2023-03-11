@@ -20,14 +20,16 @@ void Merge(Schema& destination, Schema&& source) {
         destination.path, ToString(destination.type)));
   }
 
-  auto& properties = destination.properties.value();
-  for (auto& [name, source_item] : source.properties.value()) {
-    auto it = properties.find(name);
-    if (it != properties.end()) {
-      auto& destination_item = *it->second;
-      Merge(destination_item, std::move(*source_item));
+  if (destination.properties.has_value() && source.properties.has_value()) {
+    auto& properties = destination.properties.value();
+    for (auto& [name, source_item] : source.properties.value()) {
+      auto it = properties.find(name);
+      if (it != properties.end()) {
+        auto& destination_item = *it->second;
+        Merge(destination_item, std::move(*source_item));
+      }
+      properties.emplace(name, std::move(source_item));
     }
-    properties.emplace(name, std::move(source_item));
   }
 }
 

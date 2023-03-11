@@ -71,5 +71,24 @@
         }
       }
     }
+  },
+  "POSTGRES_CONNECTION_PIPELINE_ENABLED": false,
+  "POSTGRES_CONNECTION_POOL_SETTINGS": {
+  },
+  "POSTGRES_CONNECTION_SETTINGS": {
+    "hello-db": {
+      "recent-errors-threshold": 100000,
+      "read-buffer-size": 131072
+    }
+  },
+  "POSTGRES_DEFAULT_COMMAND_CONTROL": {
+    "network_timeout_ms": 750,
+    "statement_timeout_ms": 500
+  },
+  "POSTGRES_HANDLERS_COMMAND_CONTROL": {
+  },
+  "POSTGRES_QUERIES_COMMAND_CONTROL": {
+  },
+  "POSTGRES_STATEMENT_METRICS_SETTINGS": {
   }
 }
