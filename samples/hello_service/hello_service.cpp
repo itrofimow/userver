@@ -9,6 +9,9 @@
 #include <userver/storages/postgres/postgres.hpp>
 #include <userver/testsuite/testsuite_support.hpp>
 
+#include <userver/engine/sleep.hpp>
+#include <userver/utils/rand.hpp>
+
 namespace samples::hello {
 
 class Hello final : public server::handlers::HttpHandlerBase {
@@ -22,6 +25,8 @@ class Hello final : public server::handlers::HttpHandlerBase {
   std::string HandleRequestThrow(
       const server::http::HttpRequest&,
       server::request::RequestContext&) const override {
+    engine::SleepFor(std::chrono::milliseconds{2 + utils::RandRange(7)});
+
     return "Hello world!\n";
   }
 };

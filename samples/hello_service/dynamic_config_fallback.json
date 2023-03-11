@@ -82,8 +82,8 @@
     }
   },
   "POSTGRES_DEFAULT_COMMAND_CONTROL": {
-    "network_timeout_ms": 750,
-    "statement_timeout_ms": 500
+    "network_timeout_ms": 7500,
+    "statement_timeout_ms": 5000
   },
   "POSTGRES_HANDLERS_COMMAND_CONTROL": {
   },
