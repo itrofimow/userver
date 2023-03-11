@@ -10,13 +10,11 @@
 #include <userver/components/component.hpp>
 #include <userver/components/statistics_storage.hpp>
 #include <userver/dynamic_config/storage/component.hpp>
-#include <userver/engine/task/task_processor_fwd.hpp>
 #include <userver/error_injection/settings.hpp>
 #include <userver/logging/log.hpp>
 #include <userver/storages/postgres/cluster.hpp>
 #include <userver/storages/postgres/cluster_types.hpp>
 #include <userver/storages/postgres/dsn.hpp>
-#include <userver/storages/postgres/exceptions.hpp>
 #include <userver/storages/postgres/statistics.hpp>
 #include <userver/storages/secdist/component.hpp>
 #include <userver/storages/secdist/exceptions.hpp>
@@ -283,6 +281,12 @@ properties:
         type: integer
         description: limit for concurrent establishing connections number per pool (0 - unlimited)
         defaultDescription: 0
+    read-buffer-size:
+        type: integer
+        description: read buffer size for created connections
+        defaultDescription: 16384
+        minimum: 16384
+        maximum: 1048576
 )");
 }
 

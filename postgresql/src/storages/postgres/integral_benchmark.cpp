@@ -53,6 +53,45 @@ BENCHMARK_F(PgConnection, Int64Roundtrip)(benchmark::State& state) {
   });
 }
 
+/*BENCHMARK_F(PgConnection, SelectLotsOfIntColumns)(benchmark::State& state) {
+  RunStandalone(state, [this, &state] {
+    struct Row final {
+      std::int32_t a{};
+      std::int32_t b{};
+      std::int32_t c{};
+      std::int32_t d{};
+      std::int32_t e{};
+      std::int32_t f{};
+      std::int32_t g{};
+      std::int32_t h{};
+      std::int32_t j{};
+      std::int32_t k{};
+
+      bool operator==(const Row& other) const {
+        return boost::pfr::structure_tie(*this) ==
+               boost::pfr::structure_tie(other);
+      }
+    };
+    const pg::Query query{"SELECT * FROM userver_pg_bench"};
+    const pg::CommandControl cc{
+        std::chrono::milliseconds{2000},
+        std::chrono::milliseconds{2000},
+    };
+    for (auto _ : state) {
+      auto rows = GetConnection()
+                      .Execute(query, {}, cc)
+                      .AsContainer<std::vector<Row>>(pg::kRowTag);
+
+      state.PauseTiming();
+      if (rows.size() != 100000 || rows[55471].a != 55471) {
+        state.SkipWithError("SELECT IS BROKEN");
+      }
+      std::vector<Row>{}.swap(rows);
+      state.ResumeTiming();
+    }
+  });
+}*/
+
 }  // namespace
 
 USERVER_NAMESPACE_END

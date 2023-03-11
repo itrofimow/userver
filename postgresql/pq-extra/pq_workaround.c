@@ -631,6 +631,50 @@ int PQXisBusy(PGconn* conn) {
   return conn->asyncStatus == PGASYNC_BUSY || conn->write_failed;
 }
 
+void PQXenlargeInBuf(PGconn* conn, int new_size) {
+  if (!conn || new_size <= conn->inBufSize) return;
+
+  char* new_buf = realloc(conn->inBuffer, new_size);
+  if (new_buf) {
+    conn->inBuffer = new_buf;
+    conn->inBufSize = new_size;
+  }
+}
+
+int PQXconsumeInput(PGconn* conn) {
+  if (!conn) return 0;
+
+  /*
+   * for non-blocking connections try to flush the send-queue, otherwise we
+   * may never get a response for something that may not have already been
+   * sent because it's in our write buffer!
+   */
+  if (pqIsnonblocking(conn)) {
+    if (pqFlush(conn) < 0) return 0;
+  }
+
+  /*
+   * Load more data, if available. We do this no matter what state we are
+   * in, since we are probably getting called because the application wants
+   * to get rid of a read-select condition. Note that we will NOT block
+   * waiting for more input.
+   */
+  int read_result = pqReadData(conn);
+  while (read_result > 0 && conn->inBufSize - conn->inEnd >= 8192) {
+    read_result = pqReadData(conn);
+  }
+  if (read_result < 0) return 0;
+
+  /* Parsing of the data waits till later. */
+  return 1;
+}
+
+extern int PQXinBufSize(PGconn* conn) {
+  if (!conn) return 0;
+
+  return conn->inBufSize;
+}
+
 /*
  * PQXgetResult
  *

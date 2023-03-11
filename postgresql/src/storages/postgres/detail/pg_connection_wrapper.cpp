@@ -8,6 +8,7 @@
 #else
 auto PQXisBusy(PGconn* conn) { return ::PQisBusy(conn); }
 auto PQXgetResult(PGconn* conn) { return ::PQgetResult(conn); }
+void PQXenlargeInBuf(PGconn*, int) {}
 #endif
 
 #include <userver/engine/task/cancel.hpp>
@@ -389,6 +390,12 @@ void PGConnectionWrapper::EnterPipelineMode() {
 #endif
 }
 
+void PGConnectionWrapper::SetReadBufferSize(int new_size) {
+  LOG_DEBUG() << "Setting connection read buffer size to " << new_size;
+  PQXenlargeInBuf(conn_, new_size);
+  LOG_DEBUG() << "Read buffer after update: " << PQXinBufSize(conn_);
+}
+
 bool PGConnectionWrapper::IsSyncingPipeline() const {
   return is_syncing_pipeline_;
 }
@@ -460,7 +467,7 @@ bool PGConnectionWrapper::TryConsumeInput(Deadline deadline) {
                   << (socket_.IsValid() ? "timeout" : "closed fd");
       return false;
     }
-    CheckError<CommandError>("PQconsumeInput", PQconsumeInput(conn_));
+    CheckError<CommandError>("PQXconsumeInput", PQXconsumeInput(conn_));
     UpdateLastUse();
   }
   return true;

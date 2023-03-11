@@ -35,7 +35,10 @@ void PgConnection::RunStandalone(benchmark::State& state,
 void PgConnection::RunStandalone(benchmark::State& state,
                                  std::size_t thread_count,
                                  std::function<void()> payload) {
-  engine::RunStandalone(thread_count, [&] {
+  engine::TaskProcessorPoolsConfig config{};
+  config.defer_events = false;
+
+  engine::RunStandalone(thread_count, config, [&] {
     auto dsn = GetDsnFromEnv();
     if (!dsn.empty()) {
       conn_ = detail::Connection::Connect(

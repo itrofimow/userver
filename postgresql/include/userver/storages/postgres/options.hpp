@@ -154,32 +154,32 @@ struct TopologySettings {
 };
 
 /// Default initial pool connection count
-static constexpr size_t kDefaultPoolMinSize = 4;
+static constexpr std::size_t kDefaultPoolMinSize = 4;
 
 /// Default pool connections limit
-static constexpr size_t kDefaultPoolMaxSize = 15;
+static constexpr std::size_t kDefaultPoolMaxSize = 15;
 
 /// Default size of queue for clients waiting for connections
-static constexpr size_t kDefaultPoolMaxQueueSize = 200;
+static constexpr std::size_t kDefaultPoolMaxQueueSize = 200;
 
 /// Default limit for concurrent establishing connections number
-static constexpr size_t kDefaultConnectingLimit = 0;
+static constexpr std::size_t kDefaultConnectingLimit = 0;
 
 /// @brief PostgreSQL connection pool options
 ///
 /// Dynamic option @ref POSTGRES_CONNECTION_POOL_SETTINGS
 struct PoolSettings {
   /// Number of connections created initially
-  size_t min_size{kDefaultPoolMinSize};
+  std::size_t min_size{kDefaultPoolMinSize};
 
   /// Maximum number of created connections
-  size_t max_size{kDefaultPoolMaxSize};
+  std::size_t max_size{kDefaultPoolMaxSize};
 
   /// Maximum number of clients waiting for a connection
-  size_t max_queue_size{kDefaultPoolMaxQueueSize};
+  std::size_t max_queue_size{kDefaultPoolMaxQueueSize};
 
   /// Limits number of concurrent establishing connections (0 - unlimited)
-  size_t connecting_limit{kDefaultConnectingLimit};
+  std::size_t connecting_limit{kDefaultConnectingLimit};
 
   bool operator==(const PoolSettings& rhs) const {
     return min_size == rhs.min_size && max_size == rhs.max_size &&
@@ -189,7 +189,7 @@ struct PoolSettings {
 };
 
 /// Default size limit for prepared statements cache
-static constexpr size_t kDefaultMaxPreparedCacheSize = 5000;
+static constexpr std::size_t kDefaultMaxPreparedCacheSize = 5000;
 
 /// Pipeline mode configuration
 ///
@@ -212,7 +212,7 @@ struct ConnectionSettings {
     kIgnoreUnused,
     kCheckUnused,
   };
-  using SettingsVersion = size_t;
+  using SettingsVersion = std::size_t;
 
   /// Cache prepared statements or not
   PreparedStatementOptions prepared_statements = kCachePreparedStatements;
@@ -224,13 +224,16 @@ struct ConnectionSettings {
   CheckQueryParamsOptions ignore_unused_query_params = kCheckUnused;
 
   /// Limits the size or prepared statments cache
-  size_t max_prepared_cache_size = kDefaultMaxPreparedCacheSize;
+  std::size_t max_prepared_cache_size = kDefaultMaxPreparedCacheSize;
 
   /// Turns on connection pipeline mode
   PipelineMode pipeline_mode = PipelineMode::kDisabled;
 
   /// This many connection errors in 15 seconds block new connections opening
-  size_t recent_errors_threshold = 2;
+  std::size_t recent_errors_threshold = 2;
+
+  /// Initial size of tcp read buffer
+  std::size_t read_buffer_size = 131072;  // 16384;  // 16Kb, default in libpq
 
   /// Helps keep track of the changes in settings
   SettingsVersion version{0U};
@@ -241,7 +244,8 @@ struct ConnectionSettings {
            ignore_unused_query_params == rhs.ignore_unused_query_params &&
            max_prepared_cache_size == rhs.max_prepared_cache_size &&
            pipeline_mode == rhs.pipeline_mode &&
-           recent_errors_threshold == rhs.recent_errors_threshold;
+           recent_errors_threshold == rhs.recent_errors_threshold &&
+           read_buffer_size == rhs.read_buffer_size;
   }
 
   bool operator!=(const ConnectionSettings& rhs) const {
@@ -254,7 +258,8 @@ struct ConnectionSettings {
            user_types != rhs.user_types ||
            ignore_unused_query_params != rhs.ignore_unused_query_params ||
            max_prepared_cache_size != rhs.max_prepared_cache_size ||
-           pipeline_mode != rhs.pipeline_mode;
+           pipeline_mode != rhs.pipeline_mode ||
+           read_buffer_size != rhs.read_buffer_size;
   }
 };
 
@@ -263,7 +268,7 @@ struct ConnectionSettings {
 /// Dynamic option @ref POSTGRES_STATEMENT_METRICS_SETTINGS
 struct StatementMetricsSettings final {
   /// Store metrics in LRU of this size
-  size_t max_statements{0};
+  std::size_t max_statements{0};
 
   bool operator==(const StatementMetricsSettings& other) const {
     return max_statements == other.max_statements;

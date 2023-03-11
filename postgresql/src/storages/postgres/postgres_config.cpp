@@ -39,6 +39,8 @@ CommandControl Parse(const formats::json::Value& elem,
 
 namespace {
 
+constexpr std::size_t kMaxConnectionReadBufferSize = 1 << 20;
+
 template <typename ConfigType>
 ConnectionSettings ParseConnectionSettings(const ConfigType& config) {
   ConnectionSettings settings{};
@@ -63,6 +65,18 @@ ConnectionSettings ParseConnectionSettings(const ConfigType& config) {
   settings.recent_errors_threshold =
       config["recent-errors-threshold"].template As<size_t>(
           settings.recent_errors_threshold);
+
+  const auto default_read_buffer_size = settings.read_buffer_size;
+  settings.read_buffer_size =
+      config["read-buffer-size"].template As<std::size_t>(
+          default_read_buffer_size);
+  if (settings.read_buffer_size < default_read_buffer_size ||
+      settings.read_buffer_size > kMaxConnectionReadBufferSize) {
+    throw typename ConfigType::Exception{fmt::format(
+        "Connection read-buffer-size is outside of allowed range [{}; {}]",
+        default_read_buffer_size, kMaxConnectionReadBufferSize)};
+  }
+
   return settings;
 }
 

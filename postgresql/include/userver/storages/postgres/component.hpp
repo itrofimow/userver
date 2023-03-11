@@ -130,6 +130,7 @@ namespace components {
 /// max_queue_size          | maximum number of clients waiting for a connection        | 200
 /// connecting_limit        | limit for concurrent establishing connections number per pool (0 - unlimited) | 0
 /// error-injection         | artificial error injection settings, error_injection::Settings | --
+/// read-buffer-size        | read buffer size for created connections                  | 16384 (16Kib)
 
 // clang-format on
 

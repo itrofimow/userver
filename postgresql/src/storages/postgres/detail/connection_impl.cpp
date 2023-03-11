@@ -193,6 +193,8 @@ void ConnectionImpl::AsyncConnect(const Dsn& dsn, engine::Deadline deadline) {
       std::chrono::duration_cast<std::chrono::milliseconds>(
           deadline.TimeLeft()));
   conn_wrapper_.AsyncConnect(dsn, deadline, scope);
+  // read_buffer_size is validated in settings, this static_cast is safe
+  conn_wrapper_.SetReadBufferSize(static_cast<int>(settings_.read_buffer_size));
   if (settings_.pipeline_mode == PipelineMode::kEnabled) {
     conn_wrapper_.EnterPipelineMode();
   }
