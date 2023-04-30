@@ -35,9 +35,19 @@ components_manager:
         dynamic-config:                      # Dynamic config storage options, do nothing
             fs-cache-path: ''
         dynamic-config-fallbacks:            # Load options from file and push them into the dynamic config storage.
-            fallback-path: /etc/hello_service/dynamic_config_fallback.json
+            fallback-path: ../../../samples/hello_service/dynamic_config_fallback.json
+
+        http-client:
+            fs-task-processor: fs-task-processor
+        dns-client:
+            fs-task-processor: fs-task-processor
 
         handler-hello-sample:             # Finally! Our handler.
             path: /hello                  # Registering handler by URL '/hello'.
             method: GET,POST              # It will only reply to GET (HEAD) and POST requests.
             task_processor: main-task-processor  # Run it on CPU bound task processor
+
+        handler-hello-echo:
+            path: /hello-echo
+            method: GET,POST
+            task_processor: main-task-processor
