@@ -415,8 +415,8 @@ void ConnectionPool::TryCreateConnectionAsync() {
     // Create a new connection
     connect_task_storage_.Detach(Connect());
     const auto tmp = connect_task_storage_.ActiveTasksApprox();
-    if (tmp > 1000) {
-	LOG_ERROR() << "Postgres detached more than 1000 tasks :/, current " << tmp;
+    if (tmp > 10000) {
+	LOG_ERROR() << "Postgres detached more than 10000 tasks :/, current " << tmp;
     }
   } else {
     LOG_DEBUG() << "Too many connection errors in recent period";
