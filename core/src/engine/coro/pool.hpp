@@ -11,6 +11,7 @@
 
 #include <userver/logging/log.hpp>
 #include <userver/utils/assert.hpp>
+#include <utils/impl/assert_extra.hpp>
 
 #include "pool_config.hpp"
 #include "pool_stats.hpp"
@@ -159,6 +160,7 @@ typename Pool<Task>::Coroutine Pool<Task>::CreateCoroutine(bool quiet) {
                      "coroutines count: "
                   << total_coroutines_num_.load()
                   << "; are you hitting the vm.max_map_count limit?";
+      utils::impl::AbortWithStacktrace("???");
     }
 
     throw;
