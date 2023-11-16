@@ -113,6 +113,22 @@ ResultSet Connection::Execute(const Query& query,
   return pimpl_->ExecuteCommand(query, params, std::move(statement_cmd_ctl));
 }
 
+std::string Connection::PrepareStatement(const Query& query,
+                                         const detail::QueryParameters& params,
+                                         TimeoutDuration timeout) {
+  return pimpl_->PrepareStatement(query, params, timeout);
+}
+
+void Connection::AddIntoPipeline(const std::string& prepared_statement_name,
+                                 const detail::QueryParameters& params,
+                                 tracing::ScopeTime& scope) {
+  pimpl_->AddIntoPipeline(prepared_statement_name, params, scope);
+}
+
+std::vector<ResultSet> Connection::GatherPipeline() {
+  return pimpl_->GatherPipeline();
+}
+
 ResultSet Connection::Execute(const Query& query, const ParameterStore& store) {
   return Execute(query, detail::QueryParameters{store.GetInternalData()});
 }

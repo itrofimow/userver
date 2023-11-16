@@ -453,7 +453,7 @@ Connection::StatementId ConnectionImpl::PortalBind(
   CountPortalBind count_bind(stats_);
 
   const auto& prepared_info =
-      PrepareStatement(statement, params, deadline, span, scope);
+      DoPrepareStatement(statement, params, deadline, span, scope);
 
   scope.Reset(scopes::kBind);
   conn_wrapper_.SendPortalBind(prepared_info.statement_name, portal_name,
@@ -668,7 +668,7 @@ void ConnectionImpl::SetStatementTimeout(OptionalCommandControl cmd_ctl) {
   }
 }
 
-const ConnectionImpl::PreparedStatementInfo& ConnectionImpl::PrepareStatement(
+const ConnectionImpl::PreparedStatementInfo& ConnectionImpl::DoPrepareStatement(
     const std::string& statement, const QueryParameters& params,
     engine::Deadline deadline, tracing::Span& span, tracing::ScopeTime& scope) {
   auto query_hash = QueryHash(statement, params);
@@ -772,12 +772,55 @@ ResultSet ConnectionImpl::ExecuteCommand(const Query& query,
   CountExecute count_execute(stats_);
 
   auto const& prepared_info =
-      PrepareStatement(statement, params, deadline, span, scope);
+      DoPrepareStatement(statement, params, deadline, span, scope);
 
   scope.Reset(scopes::kExec);
   conn_wrapper_.SendPreparedQuery(prepared_info.statement_name, params, scope);
   return WaitResult(statement, deadline, network_timeout, count_execute, span,
                     scope, &prepared_info.description);
+}
+
+std::string ConnectionImpl::PrepareStatement(
+    const Query& query, const detail::QueryParameters& params,
+    TimeoutDuration timeout) {
+  const auto deadline = testsuite_pg_ctl_.MakeExecuteDeadline(timeout);
+  CheckDeadlineReached(deadline);
+
+  const auto& statement = query.Statement();
+
+  tracing::Span span{scopes::kQuery};
+  conn_wrapper_.FillSpanTags(span, {timeout, GetStatementTimeout()});
+  span.AddTag(tracing::kDatabaseStatement, statement);
+
+  auto scope = span.CreateScopeTime();
+  return DoPrepareStatement(statement, params, deadline, span, scope)
+      .statement_name;
+}
+
+void ConnectionImpl::AddIntoPipeline(const std::string& prepared_statement_name,
+                                     const detail::QueryParameters& params,
+                                     tracing::ScopeTime& scope) {
+  // TODO : cleanup
+  if ((GetConnectionState() == ConnectionState::kTranActive) &&
+      !IsPipelineActive()) {
+    throw ConnectionBusy("There is another query in flight ASDASDASD");
+  }
+  if (IsInAbortedPipeline()) {
+    throw ConnectionError("Attempted to use an aborted connection");
+  }
+
+  conn_wrapper_.SendPreparedQuery(prepared_statement_name, params, scope);
+  conn_wrapper_.TODOFlush({});
+}
+
+std::vector<ResultSet> ConnectionImpl::GatherPipeline() {
+  auto result = conn_wrapper_.GatherPipeline();
+
+  for (auto& single_result : result) {
+    FillBufferCategories(single_result);
+  }
+
+  return result;
 }
 
 ResultSet ConnectionImpl::ExecuteCommandNoPrepare(const Query& query,

@@ -280,6 +280,10 @@ NonTransaction ClusterImpl::Start(ClusterHostTypeFlags flags,
   return FindPool(flags)->Start(cmd_ctl);
 }
 
+Pipeline ClusterImpl::StartPipeline(ClusterHostTypeFlags flags) {
+  return Pipeline{FindPool(flags)->Acquire({} /* TODO : deadline */)};
+}
+
 void ClusterImpl::SetDefaultCommandControl(CommandControl cmd_ctl,
                                            DefaultCommandControlSource source) {
   default_cmd_ctls_.UpdateDefaultCmdCtl(cmd_ctl, source);

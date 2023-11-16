@@ -69,6 +69,14 @@ class ConnectionImpl {
                            const detail::QueryParameters& params,
                            OptionalCommandControl statement_cmd_ctl);
 
+  std::string PrepareStatement(const Query& query,
+                               const detail::QueryParameters& params,
+                               TimeoutDuration timeout);
+  void AddIntoPipeline(const std::string& prepared_statement_name,
+                       const detail::QueryParameters& params,
+                       tracing::ScopeTime& scope);
+  std::vector<ResultSet> GatherPipeline();
+
   void Begin(const TransactionOptions& options,
              SteadyClock::time_point trx_start_time,
              OptionalCommandControl trx_cmd_ctl = {});
@@ -132,7 +140,7 @@ class ConnectionImpl {
 
   void SetStatementTimeout(OptionalCommandControl cmd_ctl);
 
-  const PreparedStatementInfo& PrepareStatement(
+  const PreparedStatementInfo& DoPrepareStatement(
       const std::string& statement, const detail::QueryParameters& params,
       engine::Deadline deadline, tracing::Span& span,
       tracing::ScopeTime& scope);

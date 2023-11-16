@@ -1356,3 +1356,61 @@ failure:
   PQclear(result);
   return EOF;
 }
+
+int PQXpipelinePutSync(PGconn* conn) {
+  PGcmdQueueEntry *entry;
+
+  if (!conn)
+    return 0;
+
+  if (conn->pipelineStatus == PQ_PIPELINE_OFF)
+  {
+    //libpq_append_conn_error(conn, "cannot send pipeline when not in pipeline mode");
+    return 0;
+  }
+
+  switch (conn->asyncStatus)
+  {
+    case PGASYNC_COPY_IN:
+    case PGASYNC_COPY_OUT:
+    case PGASYNC_COPY_BOTH:
+      /* should be unreachable */
+      appendPQExpBufferStr(&conn->errorMessage,
+                           "internal error: cannot send pipeline while in COPY\n");
+      return 0;
+    case PGASYNC_READY:
+    case PGASYNC_READY_MORE:
+    case PGASYNC_BUSY:
+    case PGASYNC_IDLE:
+    case PGASYNC_PIPELINE_IDLE:
+      /* OK to send sync */
+      break;
+  }
+
+  entry = pqAllocCmdQueueEntry(conn);
+  if (entry == NULL)
+    return 0; /* error msg already set */
+
+  entry->queryclass = PGQUERY_SYNC;
+  entry->query = NULL;
+
+  /* construct the Sync message */
+  if (pqPutMsgStart('S', conn) < 0 ||
+      pqPutMsgEnd(conn) < 0)
+    goto sendFailed;
+
+  /*
+   * Give the data a push.  In nonblock mode, don't complain if we're unable
+   * to send it all; PQgetResult() will do any additional flushing needed.
+   */
+
+  /* OK, it's launched! */
+  pqAppendCmdQueueEntry(conn, entry);
+
+  return 1;
+
+sendFailed:
+  pqRecycleCmdQueueEntry(conn, entry);
+  /* error message should be set up already */
+  return 0;
+}

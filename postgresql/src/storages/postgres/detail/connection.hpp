@@ -206,6 +206,16 @@ class Connection {
   ResultSet Execute(const Query& query, const detail::QueryParameters& = {},
                     OptionalCommandControl statement_cmd_ctl = {});
 
+  std::string PrepareStatement(const Query& query,
+                               const detail::QueryParameters& params,
+                               TimeoutDuration timeout);
+
+  void AddIntoPipeline(const std::string& prepared_statement_name,
+                       const detail::QueryParameters& params,
+                       tracing::ScopeTime& scope);
+
+  std::vector<ResultSet> GatherPipeline();
+
   template <typename... T>
   ResultSet Execute(const Query& query, const T&... args) {
     detail::StaticQueryParameters<sizeof...(args)> params;

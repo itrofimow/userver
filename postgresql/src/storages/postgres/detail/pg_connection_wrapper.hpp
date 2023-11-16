@@ -106,6 +106,8 @@ class PGConnectionWrapper {
   /// Will return result or throw an exception
   ResultSet WaitResult(Deadline deadline, tracing::ScopeTime&);
 
+  std::vector<ResultSet> GatherPipeline();
+
   /// Consume input from connection
   void ConsumeInput(Deadline deadline);
   /// Consume all input discarding all result sets
@@ -128,6 +130,8 @@ class PGConnectionWrapper {
   bool IsBroken() const;
 
   bool IsInAbortedPipeline() const;
+
+  void TODOFlush(Deadline deadline);
 
  private:
   PGTransactionStatusType GetTransactionStatus() const;

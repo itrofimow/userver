@@ -17,6 +17,7 @@
 #include <userver/storages/postgres/database.hpp>
 #include <userver/storages/postgres/detail/non_transaction.hpp>
 #include <userver/storages/postgres/options.hpp>
+#include <userver/storages/postgres/pipeline.hpp>
 #include <userver/storages/postgres/query.hpp>
 #include <userver/storages/postgres/statistics.hpp>
 #include <userver/storages/postgres/transaction.hpp>
@@ -156,6 +157,8 @@ class Cluster {
   Transaction Begin(const std::string& name, ClusterHostTypeFlags,
                     const TransactionOptions&);
   /// @}
+
+  Pipeline StartPipeline(ClusterHostTypeFlags);
 
   /// @name Single-statement query in an auto-commit transaction
   /// @{

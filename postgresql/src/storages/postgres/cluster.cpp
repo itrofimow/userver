@@ -48,6 +48,10 @@ Transaction Cluster::Begin(const std::string& name, ClusterHostTypeFlags flags,
   return pimpl_->Begin(flags, options, GetHandlersCmdCtl(GetQueryCmdCtl(name)));
 }
 
+Pipeline Cluster::StartPipeline(ClusterHostTypeFlags flags) {
+  return pimpl_->StartPipeline(flags);
+}
+
 void Cluster::SetDefaultCommandControl(CommandControl cmd_ctl) {
   pimpl_->SetDefaultCommandControl(cmd_ctl,
                                    detail::DefaultCommandControlSource::kUser);

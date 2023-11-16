@@ -19,6 +19,7 @@
 #include <userver/storages/postgres/cluster_types.hpp>
 #include <userver/storages/postgres/detail/non_transaction.hpp>
 #include <userver/storages/postgres/options.hpp>
+#include <userver/storages/postgres/pipeline.hpp>
 #include <userver/storages/postgres/statistics.hpp>
 #include <userver/storages/postgres/transaction.hpp>
 
@@ -45,6 +46,8 @@ class ClusterImpl {
                     OptionalCommandControl);
 
   NonTransaction Start(ClusterHostTypeFlags, OptionalCommandControl);
+
+  Pipeline StartPipeline(ClusterHostTypeFlags);
 
   void SetDefaultCommandControl(CommandControl, DefaultCommandControlSource);
   CommandControl GetDefaultCommandControl() const;

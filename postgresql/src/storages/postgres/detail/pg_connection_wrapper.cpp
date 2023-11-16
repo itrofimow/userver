@@ -8,6 +8,7 @@
 #else
 auto PQXisBusy(PGconn* conn) { return ::PQisBusy(conn); }
 auto PQXgetResult(PGconn* conn) { return ::PQgetResult(conn); }
+int PQXpipelinePutSync(PGconn*) { return 0; }
 #endif
 
 #include <crypto/openssl.hpp>
@@ -552,6 +553,47 @@ ResultSet PGConnectionWrapper::WaitResult(Deadline deadline,
   return MakeResult(std::move(handle));
 }
 
+std::vector<ResultSet> PGConnectionWrapper::GatherPipeline() {
+#if !LIBPQ_HAS_PIPELINING
+  throw std::runtime_error{"TODO"};
+#endif
+  const Deadline deadline{};  // TODO: actual deadline
+
+  Flush(deadline);
+
+  std::vector<ResultSet> result{};
+
+  std::size_t null_res_counter{0};
+  while (IsSyncingPipeline() && PQstatus(conn_) != CONNECTION_BAD) {
+    auto handle = MakeResultHandle(nullptr);
+    while (auto* pg_res = ReadResult(deadline)) {
+      null_res_counter = 0;
+      auto next_handle = MakeResultHandle(pg_res);
+
+      const auto status = PQresultStatus(pg_res);
+      if (status == PGRES_PIPELINE_SYNC) {
+        HandlePipelineSync();
+      } else if (status != PGRES_PIPELINE_ABORTED) {
+        handle = std::move(next_handle);
+      }
+    }
+
+    if (++null_res_counter > 2) {
+      MarkAsBroken();
+      if (!handle) {
+        throw RuntimeError{"Empty result"};
+      }
+      pipeline_sync_counter_ = 0;
+    }
+
+    if (handle != nullptr) {
+      result.push_back(MakeResult(std::move(handle)));
+    }
+  }
+
+  return result;
+}
+
 void PGConnectionWrapper::DiscardInput(Deadline deadline) {
   Flush(deadline);
   auto handle = MakeResultHandle(nullptr);
@@ -837,6 +879,18 @@ bool PGConnectionWrapper::IsInAbortedPipeline() const {
   return PQpipelineStatus(conn_) == PGpipelineStatus::PQ_PIPELINE_ABORTED;
 #else
   return false;
+#endif
+}
+
+void PGConnectionWrapper::TODOFlush(Deadline) {
+#if !LIBPQ_HAS_PIPELINING
+  throw std::runtime_error{"TODO"};
+#else
+  if (PQpipelineStatus(conn_) != PQ_PIPELINE_OFF) {
+    HandleSocketPostClose();
+    CheckError<CommandError>("PQXpipelineSync", PQXpipelinePutSync(conn_));
+    ++pipeline_sync_counter_;
+  }
 #endif
 }
 
