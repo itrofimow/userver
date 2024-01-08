@@ -56,6 +56,11 @@ NotifyScope Cluster::Listen(std::string_view channel,
   return pimpl_->Listen(channel, cmd_ctl);
 }
 
+QueryQueue Cluster::CreateQueryQueue(ClusterHostTypeFlags flags,
+                                     TimeoutDuration acquire_timeout) {
+  return pimpl_->CreateQueryQueue(flags, acquire_timeout);
+}
+
 void Cluster::SetDefaultCommandControl(CommandControl cmd_ctl) {
   pimpl_->SetDefaultCommandControl(cmd_ctl,
                                    detail::DefaultCommandControlSource::kUser);

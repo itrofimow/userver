@@ -75,6 +75,8 @@ bool Connection::IsBroken() const { return pimpl_->IsBroken(); }
 
 bool Connection::IsExpired() const { return pimpl_->IsExpired(); }
 
+bool Connection::IsPipelineActive() const { return pimpl_->IsPipelineActive(); }
+
 int Connection::GetServerVersion() const { return pimpl_->GetServerVersion(); }
 
 bool Connection::IsInTransaction() const { return pimpl_->IsInTransaction(); }
@@ -111,6 +113,22 @@ ResultSet Connection::Execute(const Query& query,
                               const detail::QueryParameters& params,
                               OptionalCommandControl statement_cmd_ctl) {
   return pimpl_->ExecuteCommand(query, params, std::move(statement_cmd_ctl));
+}
+
+std::string Connection::PrepareStatement(const Query& query,
+                                         const detail::QueryParameters& params,
+                                         TimeoutDuration timeout) {
+  return pimpl_->PrepareStatement(query, params, timeout);
+}
+
+void Connection::AddIntoPipeline(const std::string& prepared_statement_name,
+                                 const detail::QueryParameters& params,
+                                 tracing::ScopeTime& scope) {
+  pimpl_->AddIntoPipeline(prepared_statement_name, params, scope);
+}
+
+std::vector<ResultSet> Connection::GatherPipeline(TimeoutDuration timeout) {
+  return pimpl_->GatherPipeline(timeout);
 }
 
 ResultSet Connection::Execute(const Query& query, const ParameterStore& store) {

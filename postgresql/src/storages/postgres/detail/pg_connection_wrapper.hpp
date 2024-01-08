@@ -110,6 +110,8 @@ class PGConnectionWrapper {
   /// @brief Wait for notification
   Notification WaitNotify(Deadline deadline);
 
+  std::vector<ResultSet> GatherPipeline(Deadline deadline);
+
   /// Consume input from connection
   void ConsumeInput(Deadline deadline);
 
@@ -137,6 +139,8 @@ class PGConnectionWrapper {
   /// Escape a string for use as an SQL identifier, such as a table, column, or
   /// function name
   std::string EscapeIdentifier(std::string_view);
+
+  void PutPipelineSync();
 
  private:
   PGTransactionStatusType GetTransactionStatus() const;

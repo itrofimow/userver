@@ -14,6 +14,8 @@ extern PGresult* PQXgetResult(PGconn* conn);
 /// the `portal suspended` backend response message
 extern int PQXisBusy(PGconn* conn);
 
+extern int PQXpipelinePutSync(PGconn* conn);
+
 #ifdef __cplusplus
 }
 #endif

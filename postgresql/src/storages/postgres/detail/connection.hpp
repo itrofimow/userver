@@ -164,6 +164,8 @@ class Connection {
   bool IsBroken() const;
   /// Check if the connection lived past its ttl
   bool IsExpired() const;
+  /// Check is the connection is in pipeline mode
+  bool IsPipelineActive() const;
 
   /// The result is formed by multiplying the server's major version number by
   /// 10000 and adding the minor version number. -- docs
@@ -206,6 +208,16 @@ class Connection {
   /** @name Command sending interface */
   ResultSet Execute(const Query& query, const detail::QueryParameters& = {},
                     OptionalCommandControl statement_cmd_ctl = {});
+
+  std::string PrepareStatement(const Query& query,
+                               const detail::QueryParameters& params,
+                               TimeoutDuration timeout);
+
+  void AddIntoPipeline(const std::string& prepared_statement_name,
+                       const detail::QueryParameters& params,
+                       tracing::ScopeTime& scope);
+
+  std::vector<ResultSet> GatherPipeline(TimeoutDuration timeout);
 
   template <typename... T>
   ResultSet Execute(const Query& query, const T&... args) {
